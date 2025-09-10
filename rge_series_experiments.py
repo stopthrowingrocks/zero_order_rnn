@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-In series RGE experiments on LSTM and DNC training on a few tasks: overfit, copy, sort, reverse, add, penn treebank, etc. 
+In series RGE experiments on LSTM and DNC training on a few tasks: overfit, copy, sort, reverse, add, penn treebank, etc.
 python rge_series_experiments.py --unit_test --max_iterations 10 --micro_batch_size 1 --seq_length 10 --device cuda:1 --solver 1SPSA
 
  choices=["BPTT", "1SPSA", "1.5-SPSA", "2SPSA" ... ] )
@@ -67,203 +67,203 @@ def set_seed(seed: int = 42):
 
 
 def compute_task_loss(logits, ids_np, tok, task, verbose=False):
-      """Compute loss with gradients based on task type with proper shift for predictions"""
-      B, T, V = logits.shape
-      device = logits.device
+    """Compute loss with gradients based on task type with proper shift for predictions"""
+    B, T, V = logits.shape
+    device = logits.device
 
-      # Different separator tokens for different tasks
-      if task in ["copy", "repeat_copy", "sort", "reverse"]:
-          sep = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
-      elif task == "add":
-          sep = tok.token_to_id.get("=", 0)
-      else:  # penn_tree_bank or any others
-          # For PTB, predict next token for each position
-          targets = torch.as_tensor(ids_np[:, 1:], device=device, dtype=torch.long)
-          shifted_logits = logits[:, :-1, :]
-          loss = torch.nn.functional.cross_entropy(
-              shifted_logits.reshape(-1, V),
-              targets.reshape(-1),
-              reduction='mean'
-          )
-          return loss
+    # Different separator tokens for different tasks
+    if task in ["copy", "repeat_copy", "sort", "reverse"]:
+        sep = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
+    elif task == "add":
+        sep = tok.token_to_id.get("=", 0)
+    else:  # penn_tree_bank or any others
+        # For PTB, predict next token for each position
+        targets = torch.as_tensor(ids_np[:, 1:], device=device, dtype=torch.long)
+        shifted_logits = logits[:, :-1, :]
+        loss = torch.nn.functional.cross_entropy(
+            shifted_logits.reshape(-1, V),
+            targets.reshape(-1),
+            reduction='mean'
+        )
+        return loss
 
-      # Get space token ID
-      space_id = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
+    # Get space token ID
+    space_id = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
 
-      # Initialize running total and count
-      total_loss = torch.tensor(0.0, device=device, requires_grad=True)
-      count = 0
+    # Initialize running total and count
+    total_loss = torch.tensor(0.0, device=device, requires_grad=True)
+    count = 0
 
-      for b in range(B):
-          try:
-              # Find separator position
-              pos = list(ids_np[b]).index(sep)
-          except ValueError:
-              continue
+    for b in range(B):
+        try:
+            # Find separator position
+            pos = list(ids_np[b]).index(sep)
+        except ValueError:
+            continue
 
-          # Get output part (everything after the separator)
-          output_part = ids_np[b][pos + 1:]
+        # Get output part (everything after the separator)
+        output_part = ids_np[b][pos + 1:]
 
-          if len(output_part) <= 1:  # Need at least 2 tokens for prediction
-              continue
+        if len(output_part) <= 1:  # Need at least 2 tokens for prediction
+            continue
 
-          # Find content indices in output (non-space tokens)
-          content_indices = [i for i, t in enumerate(output_part) if t != space_id]
-          if not content_indices:
-              continue
+        # Find content indices in output (non-space tokens)
+        content_indices = [i for i, t in enumerate(output_part) if t != space_id]
+        if not content_indices:
+            continue
 
-          # Debug prints
-          if verbose and b < 3:
-              input_text = tok.decode(ids_np[b][:pos+1])
-              target_text = tok.decode([output_part[i] for i in content_indices if i < len(output_part)])
-              print(f"\nSample {b}:")
-              print(f"  Input: '{input_text}'")
-              print(f"  Target: '{target_text}'")
+        # Debug prints
+        if verbose and b < 3:
+            input_text = tok.decode(ids_np[b][:pos+1])
+            target_text = tok.decode([output_part[i] for i in content_indices if i < len(output_part)])
+            print(f"\nSample {b}:")
+            print(f"  Input: '{input_text}'")
+            print(f"  Target: '{target_text}'")
 
-          # The crucial correction: 
-          # For each position i, use logits at position pos+1+i to predict token at position i+1
-          pred_logits = []
-          tgt_tokens = []
+        # The crucial correction:
+        # For each position i, use logits at position pos+1+i to predict token at position i+1
+        pred_logits = []
+        tgt_tokens = []
 
-          # For each position except the last one in output_part
-          for i in range(len(output_part) - 1):
-              # Only include if it's a content token or space following content
-              if (i in content_indices) or (i-1 in content_indices and output_part[i] == space_id):
-                  if pos + 1 + i < T:  # Ensure we're within logits sequence length
-                      pred_logits.append(logits[b, pos + 1 + i])
-                      tgt_tokens.append(output_part[i + 1])  # Predict NEXT token
+        # For each position except the last one in output_part
+        for i in range(len(output_part) - 1):
+            # Only include if it's a content token or space following content
+            if (i in content_indices) or (i-1 in content_indices and output_part[i] == space_id):
+                if pos + 1 + i < T:  # Ensure we're within logits sequence length
+                    pred_logits.append(logits[b, pos + 1 + i])
+                    tgt_tokens.append(output_part[i + 1])  # Predict NEXT token
 
-          # Skip if we have no valid targets
-          if not tgt_tokens:
-              continue
+        # Skip if we have no valid targets
+        if not tgt_tokens:
+            continue
 
-          # Stack logits and prepare targets
-          if pred_logits:
-              stacked_logits = torch.stack(pred_logits)
-              targets = torch.tensor(tgt_tokens, device=device, dtype=torch.long)
+        # Stack logits and prepare targets
+        if pred_logits:
+            stacked_logits = torch.stack(pred_logits)
+            targets = torch.tensor(tgt_tokens, device=device, dtype=torch.long)
 
-              # stacked_logits = stacked_logits.to(torch.float64)   # <— or .float() or nothing.. not sure it really helps.
-              stacked_logits = stacked_logits.to(torch.float32) 
-              # Compute batch loss
-              batch_loss = torch.nn.functional.cross_entropy(
-                  stacked_logits,
-                  targets,
-                  reduction='sum'
-              )
+            # stacked_logits = stacked_logits.to(torch.float64)   # <— or .float() or nothing.. not sure it really helps.
+            stacked_logits = stacked_logits.to(torch.float32)
+            # Compute batch loss
+            batch_loss = torch.nn.functional.cross_entropy(
+                stacked_logits,
+                targets,
+                reduction='sum'
+            )
 
-              total_loss = total_loss + batch_loss
-              count += len(tgt_tokens)
+            total_loss = total_loss + batch_loss
+            count += len(tgt_tokens)
 
-      # If no valid samples, return dummy loss
-      if count == 0:
-          return logits.sum() * 0.0
+    # If no valid samples, return dummy loss
+    if count == 0:
+        return logits.sum() * 0.0
 
-      return total_loss / count
+    return total_loss / count
 
 def compute_task_loss_with_gradients(logits, ids_np, tok, task, verbose=False):
-      """Compute loss with gradients based on task type with proper shift for predictions"""
-      B, T, V = logits.shape
-      device = logits.device
+    """Compute loss with gradients based on task type with proper shift for predictions"""
+    B, T, V = logits.shape
+    device = logits.device
 
-      # Different separator tokens for different tasks
-      if task in ["copy", "repeat_copy", "sort", "reverse"]:
-          sep = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
-      elif task == "add":
-          sep = tok.token_to_id.get("=", 0)
-      else:  # penn_tree_bank or any others
-          # For PTB, predict next token for each position
-          targets = torch.as_tensor(ids_np[:, 1:], device=device, dtype=torch.long)
-          shifted_logits = logits[:, :-1, :]
-          loss = torch.nn.functional.cross_entropy(
-              shifted_logits.reshape(-1, V),
-              targets.reshape(-1),
-              reduction='mean'
-          )
-          return loss
+    # Different separator tokens for different tasks
+    if task in ["copy", "repeat_copy", "sort", "reverse"]:
+        sep = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
+    elif task == "add":
+        sep = tok.token_to_id.get("=", 0)
+    else:  # penn_tree_bank or any others
+        # For PTB, predict next token for each position
+        targets = torch.as_tensor(ids_np[:, 1:], device=device, dtype=torch.long)
+        shifted_logits = logits[:, :-1, :]
+        loss = torch.nn.functional.cross_entropy(
+            shifted_logits.reshape(-1, V),
+            targets.reshape(-1),
+            reduction='mean'
+        )
+        return loss
 
-      # Get space token ID
-      space_id = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
+    # Get space token ID
+    space_id = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
 
-      # Initialize running total and count
-      total_loss = torch.tensor(0.0, device=device, requires_grad=True)
-      count = 0
+    # Initialize running total and count
+    total_loss = torch.tensor(0.0, device=device, requires_grad=True)
+    count = 0
 
-      for b in range(B):
-          try:
-              # Find separator position
-              pos = list(ids_np[b]).index(sep)
-          except ValueError:
-              continue
+    for b in range(B):
+        try:
+            # Find separator position
+            pos = list(ids_np[b]).index(sep)
+        except ValueError:
+            continue
 
-          # Get output part (everything after the separator)
-          output_part = ids_np[b][pos + 1:]
+        # Get output part (everything after the separator)
+        output_part = ids_np[b][pos + 1:]
 
-          if len(output_part) <= 1:  # Need at least 2 tokens for prediction
-              continue
+        if len(output_part) <= 1:  # Need at least 2 tokens for prediction
+            continue
 
-          # Find content indices in output (non-space tokens)
-          content_indices = [i for i, t in enumerate(output_part) if t != space_id]
-          if not content_indices:
-              continue
+        # Find content indices in output (non-space tokens)
+        content_indices = [i for i, t in enumerate(output_part) if t != space_id]
+        if not content_indices:
+            continue
 
-          # Debug prints
-          if verbose and b < 3:
-              input_text = tok.decode(ids_np[b][:pos+1])
-              target_text = tok.decode([output_part[i] for i in content_indices if i < len(output_part)])
-              print(f"\nSample {b}:")
-              print(f"  Input: '{input_text}'")
-              print(f"  Target: '{target_text}'")
+        # Debug prints
+        if verbose and b < 3:
+            input_text = tok.decode(ids_np[b][:pos+1])
+            target_text = tok.decode([output_part[i] for i in content_indices if i < len(output_part)])
+            print(f"\nSample {b}:")
+            print(f"  Input: '{input_text}'")
+            print(f"  Target: '{target_text}'")
 
-          # The crucial correction: 
-          # For each position i, use logits at position pos+1+i to predict token at position i+1
-          pred_logits = []
-          tgt_tokens = []
+        # The crucial correction:
+        # For each position i, use logits at position pos+1+i to predict token at position i+1
+        pred_logits = []
+        tgt_tokens = []
 
-          # For each position except the last one in output_part
-          for i in range(len(output_part) - 1):
-              # Only include if it's a content token or space following content
-              if (i in content_indices) or (i-1 in content_indices and output_part[i] == space_id):
-                  if pos + 1 + i < T:  # Ensure we're within logits sequence length
-                      pred_logits.append(logits[b, pos + 1 + i])
-                      tgt_tokens.append(output_part[i + 1])  # Predict NEXT token
+        # For each position except the last one in output_part
+        for i in range(len(output_part) - 1):
+            # Only include if it's a content token or space following content
+            if (i in content_indices) or (i-1 in content_indices and output_part[i] == space_id):
+                if pos + 1 + i < T:  # Ensure we're within logits sequence length
+                    pred_logits.append(logits[b, pos + 1 + i])
+                    tgt_tokens.append(output_part[i + 1])  # Predict NEXT token
 
-          # Skip if we have no valid targets
-          if not tgt_tokens:
-              continue
+        # Skip if we have no valid targets
+        if not tgt_tokens:
+            continue
 
-          # Stack logits and prepare targets
-          if pred_logits:
-              stacked_logits = torch.stack(pred_logits)
-              targets = torch.tensor(tgt_tokens, device=device, dtype=torch.long)
+        # Stack logits and prepare targets
+        if pred_logits:
+            stacked_logits = torch.stack(pred_logits)
+            targets = torch.tensor(tgt_tokens, device=device, dtype=torch.long)
 
-              # Compute batch loss
-              batch_loss = torch.nn.functional.cross_entropy(
-                  stacked_logits,
-                  targets,
-                  reduction='sum'
-              )
+            # Compute batch loss
+            batch_loss = torch.nn.functional.cross_entropy(
+                stacked_logits,
+                targets,
+                reduction='sum'
+            )
 
-              total_loss = total_loss + batch_loss
-              count += len(tgt_tokens)
+            total_loss = total_loss + batch_loss
+            count += len(tgt_tokens)
 
-      # If no valid samples, return dummy loss
-      if count == 0:
-          return logits.sum() * 0.0
+    # If no valid samples, return dummy loss
+    if count == 0:
+        return logits.sum() * 0.0
 
-      return total_loss / count
+    return total_loss / count
 
 def compute_task_accuracy(logits, ids_np, tok, task, verbose=False):
     """Compute accuracy based on task type"""
     B, T, V = logits.shape
     device = logits.device
-    
+
     total_correct = 0
     total_tokens = 0
     content_correct = 0
     content_tokens = 0
     eos_correct = 0
     eos_tokens = 0
-    
+
     # Different separator tokens for different tasks
     if task in ["copy", "repeat_copy", "sort", "reverse"]:
         sep = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
@@ -276,65 +276,65 @@ def compute_task_accuracy(logits, ids_np, tok, task, verbose=False):
         correct = (predictions == targets).sum().item()
         total = targets.numel()
         return correct / total if total > 0 else 0.0
-    
+
     # Get space token ID
     space_id = tok.char_to_id.get(" ", 0) if hasattr(tok, 'char_to_id') else tok.token_to_id.get(" ", 0)
-    
+
     for b in range(B):
         try:
             # Find separator position
             pos = list(ids_np[b]).index(sep)
         except ValueError:
             continue
-        
+
         # Get target tokens after separator
         output_part = ids_np[b][pos+1:]
-        
+
         # Find content tokens (non-space) and add EOS token
         content_indices = [i for i, t in enumerate(output_part) if t != space_id]
-        
+
         if not content_indices:
             continue
-        
+
         # Add one more index after the last content token to include an EOS space
         last_content_idx = max(content_indices)
         eos_idx = last_content_idx + 1
-            
+
         # Get all predictions for the output part
         pred_logits = logits[b, pos+1:pos+1+len(output_part)]
         pred_ids = pred_logits.argmax(dim=-1).cpu().numpy()
-        
+
         # Debug prints for verifying processing
         if verbose and b < 3:  # Limit debug to first 3 samples
             input_part = ids_np[b][:pos+1]
             input_text = tok.decode(input_part)
-            
+
             # Decode actual target and prediction
             content_target = [output_part[i] for i in content_indices if i < len(output_part)]
             content_pred = [pred_ids[i] for i in content_indices if i < len(pred_ids)]
-            
+
             target_text = tok.decode(content_target)
             pred_text = tok.decode(content_pred)
-            
+
             # Include EOS token if it exists
             full_target = content_target.copy()
             full_pred = content_pred.copy()
-            
+
             if eos_idx < len(output_part):
                 full_target.append(output_part[eos_idx])
             if eos_idx < len(pred_ids):
                 full_pred.append(pred_ids[eos_idx])
-                
+
             full_target_text = tok.decode(full_target)
             full_pred_text = tok.decode(full_pred)
-            
+
             print(f"\nAccuracy Sample {b}:")
             print(f"  Input: '{input_text}'")
             print(f"  Target (content): '{target_text}'")
             print(f"  Pred (content): '{pred_text}'")
             print(f"  Target (with EOS): '{full_target_text}'")
             print(f"  Pred (with EOS): '{full_pred_text}'")
-        
+
         # Count correct content token predictions
         for i in content_indices:
             if i < len(pred_ids):  # Make sure we're in bounds
@@ -343,7 +343,7 @@ def compute_task_accuracy(logits, ids_np, tok, task, verbose=False):
                 if pred_ids[i] == output_part[i]:
                     total_correct += 1
                     content_correct += 1
-                    
+
         # Count correct EOS token prediction if it exists
         if eos_idx < len(output_part) and eos_idx < len(pred_ids):
             total_tokens += 1
@@ -351,7 +351,7 @@ def compute_task_accuracy(logits, ids_np, tok, task, verbose=False):
             if pred_ids[eos_idx] == output_part[eos_idx]:
                 total_correct += 1
                 eos_correct += 1
-    
+
     # Report detailed stats if verbose
     if verbose:
         content_acc = content_correct / max(content_tokens, 1) * 100
@@ -360,7 +360,7 @@ def compute_task_accuracy(logits, ids_np, tok, task, verbose=False):
         print(f"  Content tokens: {content_correct}/{content_tokens} = {content_acc:.2f}%")
         print(f"  EOS tokens: {eos_correct}/{eos_tokens} = {eos_acc:.2f}%")
         print(f"  Overall: {total_correct}/{total_tokens} = {total_correct / max(total_tokens, 1) * 100:.2f}%")
-    
+
     return total_correct / max(total_tokens, 1)
 
 # ───────── Memory Estimation ─────────
@@ -420,7 +420,7 @@ def generate_rademacher_noise(param, epsilon):
 
     # 3) scale by epsilon
     return noise.mul_(epsilon)
-    
+
 def generate_perturbation(param, epsilon, distribution='rad', seed=None):
     """Generate perturbation according to the specified distribution with optional seed"""
     # Set seed for reproducibility if provided
@@ -468,7 +468,7 @@ def SPSA1_5(model_params: List[torch.Tensor],
     }
 
     device = model_params[0].device
-    
+
     # Get macro_batch_size - default to 1 if not provided
     macro_batch_size = args.macro_batch_size if args is not None and hasattr(args, 'macro_batch_size') else 1
     if is_verbose and macro_batch_size > 1:
@@ -479,7 +479,7 @@ def SPSA1_5(model_params: List[torch.Tensor],
     # Store gradients for each parameter
     if is_verbose:
         print("CDRGE: Initializing gradients...")
-    
+
     gradients = [torch.zeros_like(p.data) for p in model_params]
 
 
@@ -492,8 +492,8 @@ def SPSA1_5(model_params: List[torch.Tensor],
         grad_buffer = [torch.zeros_like(p.data) for p in model_params]
     else:
         grad_estimate_list = []          # original storage
-    
-    
+
+
     if is_verbose:
         print("starting perturbations")
 
@@ -504,37 +504,37 @@ def SPSA1_5(model_params: List[torch.Tensor],
         total_clean_loss += batch_loss
 
     clean_loss = total_clean_loss / macro_batch_size
-    
+
     # Evaluate perturbations
     for j in range(num_perturbations):
         # Set a seed for this perturbation (to reproduce the same noise later)
         pert_seed = all_seeds[j]
-        
+
         ##################################################################
         # Apply positive perturbations using the seed
         ##################################################################
         for param_idx, param in enumerate(model_params):
             for chunk in torch.split(param.data, CHUNK_SIZE, dim=0):   # 8 k rows each
                 probe = generate_perturbation(
-                    chunk,                
+                    chunk,
                     epsilon,
                     distribution,
                     seed=pert_seed + param_idx
                 )
                 chunk.add_(probe)         # in-place update of that slice only
-            
+
             # Generate and apply perturbation
             # probe = generate_perturbation(param, epsilon, distribution, seed=pert_seed + param_idx)
             # param.data.add_(probe)
 
-        
+
         # Compute loss with positive perturbation - average across macro batches
         total_pos_loss = 0.0
         for _ in range(macro_batch_size):
             pos_loss_batch = loss_fn()
             batch_loss = pos_loss_batch.item() if hasattr(pos_loss_batch, 'item') else float(pos_loss_batch)
             total_pos_loss += batch_loss
-            
+
         pos_loss = total_pos_loss / macro_batch_size
 
         ##################################################################
@@ -543,8 +543,8 @@ def SPSA1_5(model_params: List[torch.Tensor],
         for param_idx, param in enumerate(model_params):
             for chunk in torch.split(param.data, CHUNK_SIZE, dim=0):   # 8 k rows each
                 probe = generate_perturbation(
-                    chunk,               
-                     -2*epsilon,
+                    chunk,
+                    -2*epsilon,
                     distribution,
                     seed=pert_seed + param_idx
                 )
@@ -559,26 +559,26 @@ def SPSA1_5(model_params: List[torch.Tensor],
             neg_loss_batch = loss_fn()
             batch_loss = neg_loss_batch.item() if hasattr(neg_loss_batch, 'item') else float(neg_loss_batch)
             total_neg_loss += batch_loss
-            
+
         neg_loss = total_neg_loss / macro_batch_size
-        
-        # 2-sided estimation: (f(x+ε) - f(x-ε))/2 
+
+        # 2-sided estimation: (f(x+ε) - f(x-ε))/2
         grad_estimate = -1*(pos_loss - neg_loss) / (2*num_perturbations) # no epsilon bc we mult later so it cancels out
-        curv = abs(pos_loss -2*clean_loss + neg_loss)/(epsilon**2) 
+        curv = abs(pos_loss -2*clean_loss + neg_loss)/(epsilon**2)
         # curvature = max( 0.001 * curv, lambda_reg)
         curvature = max( curv**args.saturating_alpha, lambda_reg)
-        
+
         # curvature = max( np.log(curv + 1e-8), lambda_reg)
         grad_estimate_list.append(grad_estimate / curvature)
         sum_of_losses += (pos_loss + neg_loss) / (2)
 
         if is_verbose:
-          print(f"  grad_estimate {grad_estimate} curv {curv} denom {curvature} ")
-        
+            print(f"  grad_estimate {grad_estimate} curv {curv} denom {curvature} ")
+
         # for param_idx, param in enumerate(model_params):
         #     for chunk in torch.split(param.data, CHUNK_SIZE, dim=0):   # 8 k rows each
         #         probe = generate_perturbation(
-        #             chunk,               
+        #             chunk,
         #             1,
         #             distribution,
         #             seed=pert_seed + param_idx
@@ -591,10 +591,10 @@ def SPSA1_5(model_params: List[torch.Tensor],
 
         for param_idx, param in enumerate(model_params):
             rows = param.size(0)
-        
+
             for start in range(0, rows, CHUNK_SIZE):
                 end   = min(start + CHUNK_SIZE, rows)
-        
+
                 slice_param = param.data[start:end]        # view onto weights
                 probe = generate_perturbation(
                             slice_param,                   # same shape
@@ -602,25 +602,25 @@ def SPSA1_5(model_params: List[torch.Tensor],
                             distribution,
                             seed=pert_seed + param_idx
                         )
-        
+
                 slice_param.add_(probe, alpha=epsilon)     # restore weights
-        
+
                 if cache_gradients:
                     # accumulate coeff·probe into the matching slice of grad_buffer
                     grad_buffer[param_idx][start:end].add_(probe,
                                                            alpha=grad_estimate)
-            
+
             # # Regenerate the same noise
             # probe = generate_perturbation(param, epsilon, distribution, seed=pert_seed + param_idx)
 
             # # Restore parameter by adding the perturbation
             # param.data.add_(probe)
-            
+
 
     # for idx, param in enumerate(model_params):
     #     # if idx == 3:                      # skip states tensor
     #     #     continue
-    
+
     #     # -------- accumulate gradient in FP32 -------------------------
     #     grad = None
     #     for j in range(num_perturbations):
@@ -628,7 +628,7 @@ def SPSA1_5(model_params: List[torch.Tensor],
     #         coeff        = grad_estimate_list[j]       # (f⁺−f⁻)/2ε
     #         probe   = generate_perturbation(
     #                            param, coeff, distribution, seed)
-            
+
     #         grad = probe if grad is None else grad + probe
 
     #     param.data.add_(grad, alpha= -1./float(num_perturbations)   )
@@ -641,7 +641,7 @@ def SPSA1_5(model_params: List[torch.Tensor],
 
     if cache_gradients:
         for buf, param in zip(grad_buffer, model_params):
-            param.data.add_(buf) 
+            param.data.add_(buf)
 
     else: # calculate this post from the seeds
         for idx, param in enumerate(model_params):
@@ -649,13 +649,13 @@ def SPSA1_5(model_params: List[torch.Tensor],
             for j in range(num_perturbations):
                 seed  = all_seeds[j] + idx
                 coeff = grad_estimate_list[j]                 # (f⁺−f⁻)/2n # no ε bc ε == lr and they cancel out
-        
+
                 # ── NEW: accumulate probe chunk-by-chunk ─────────────────────
                 for chunk in torch.split(param, CHUNK_SIZE, dim=0):     # 8k rows
                     probe = generate_perturbation(
                                 chunk, coeff, distribution, seed)
-                    chunk.add_(probe) 
-        
+                    chunk.add_(probe)
+
                 # grad = probe if grad is None else grad + probe
 
 
@@ -672,16 +672,16 @@ def SPSA1_5(model_params: List[torch.Tensor],
         print(f"CD-RGE: Optimization completed in {elapsed:.2f}s with loss {loss:.6f}")
     return metrics
 
-    
-def cdrge_optimize(model_params, 
-                   loss_fn, 
-                   lr, 
-                   epsilon, 
-                   iterations, 
+
+def cdrge_optimize(model_params,
+                   loss_fn,
+                   lr,
+                   epsilon,
+                   iterations,
                    num_perturbations=20,
-                   distribution='rad', 
-                   antithetic=False, 
-                   use_adaptive_step=False, 
+                   distribution='rad',
+                   antithetic=False,
+                   use_adaptive_step=False,
                    clip_grad_norm=0.0,
                    cache_gradients = True,
                    CHUNK_SIZE = 2**15, # TUNE THIS TO MAKE IT FIT IN VRAM BUT ALSO BE FAST
@@ -721,9 +721,9 @@ def cdrge_optimize(model_params,
 
 
     lr_to_eta_ratio = lr/epsilon
-    
+
     device = model_params[0].device
-    
+
     # Get macro_batch_size - default to 1 if not provided
     macro_batch_size = args.macro_batch_size if args is not None and hasattr(args, 'macro_batch_size') else 1
     if is_verbose and macro_batch_size > 1:
@@ -734,21 +734,21 @@ def cdrge_optimize(model_params,
     # Store gradients for each parameter
     if is_verbose:
         print("CDRGE: Initializing gradients...")
-    
+
 
 
     all_seeds = [random.randint(0, 2**32 - 1) for i in range(num_perturbations)]
     grad_estimate_list = []
     sum_of_losses = 0
 
-    
+
     if args.beta1>0 and not hasattr(args, "coordinate_momentum"):                        # Nesterov buffer (m starts at 0)
         # coordinate_momentum   = [torch.zeros_like(p.data) for p in model_params]
         args.coordinate_momentum = [
                             list(torch.split(torch.zeros_like(p.data, dtype=torch.float32), CHUNK_SIZE, dim=0))
                             for p in model_params
                         ]
-        
+
     if args.beta2>0 and not hasattr(args, "coordinate_variance"):                         # RMSProp accumulator (v starts at 1)
         # coordinate_variance = [torch.ones_like(p.data) for p in model_params]
         args.coordinate_variance = [
@@ -759,9 +759,9 @@ def cdrge_optimize(model_params,
 
     if args.beta1>0 or args.beta2>0:
         cache_gradients = True  # theoretically, you dont need to have this, but not implemented otherwise..
-                                # ensures useability for now.. 
+                                # ensures useability for now..
                                 # use unless you want to implement the non-cache version to save VRAM
-    
+
     if cache_gradients:
         # one tensor per param to accumulate Σ coeff·probe
         # grad_buffer = [torch.zeros_like(p.data) for p in model_params]
@@ -770,27 +770,27 @@ def cdrge_optimize(model_params,
                             for p in model_params
                         ]
 
-        
+
     else:
         grad_estimate_list = []          # original storage
-    
-    
+
+
     if is_verbose:
         print("starting perturbations")
-        
+
     # Evaluate perturbations
     for j in range(num_perturbations):
         # Set a seed for this perturbation (to reproduce the same noise later)
         pert_seed = all_seeds[j]
-        
+
         ##################################################################
         # Apply positive perturbations using the seed
         ##################################################################
         for param_idx, param in enumerate(model_params):
             for chunk_idx, chunk in enumerate(torch.split(param.data, CHUNK_SIZE, dim=0)):   # 8 k rows each
-                
+
                 probe = generate_perturbation(
-                    chunk,                
+                    chunk,
                     1,
                     distribution,
                     seed=pert_seed + param_idx + chunk_idx
@@ -801,19 +801,19 @@ def cdrge_optimize(model_params,
                     # probe /= torch.clamp_min(coordinate_variance[param_idx][chunk_idx], 1.0)
                 probe *= epsilon
                 chunk.add_(probe)         # in-place update of that slice only
-            
+
             # Generate and apply perturbation
             # probe = generate_perturbation(param, epsilon, distribution, seed=pert_seed + param_idx)
             # param.data.add_(probe)
 
-        
+
         # Compute loss with positive perturbation - average across macro batches
         total_pos_loss = 0.0
         for _ in range(macro_batch_size):
             pos_loss_batch = loss_fn()
             batch_loss = pos_loss_batch.item() if hasattr(pos_loss_batch, 'item') else float(pos_loss_batch)
             total_pos_loss += batch_loss
-            
+
         pos_loss = total_pos_loss / macro_batch_size
 
         ##################################################################
@@ -822,11 +822,11 @@ def cdrge_optimize(model_params,
         for param_idx, param in enumerate(model_params):
             for chunk_idx, chunk in enumerate(torch.split(param.data, CHUNK_SIZE, dim=0)):   # 8 k rows each
                 probe = generate_perturbation(
-                    chunk,                
+                    chunk,
                     -2,
                     distribution,
                     seed=pert_seed + param_idx + chunk_idx
-                    )
+                )
                 if args.beta2>0 and args.use_probe_preconditioning:
                     # we need to adjust the probe by 1/coordinate_variance but in a safe way..
                     probe.div_(args.coordinate_variance[param_idx][chunk_idx].sqrt().add_(1e-8))
@@ -844,18 +844,18 @@ def cdrge_optimize(model_params,
             neg_loss_batch = loss_fn()
             batch_loss = neg_loss_batch.item() if hasattr(neg_loss_batch, 'item') else float(neg_loss_batch)
             total_neg_loss += batch_loss
-            
+
         neg_loss = total_neg_loss / macro_batch_size
-        
-        # 2-sided estimation: (f(x+ε) - f(x-ε))/2 
+
+        # 2-sided estimation: (f(x+ε) - f(x-ε))/2
         grad_estimate = -1*(pos_loss - neg_loss) / (2*num_perturbations) # no epsilon bc we mult later so it cancels out
         sum_of_losses += (pos_loss + neg_loss) / (2)
         grad_estimate_list.append(grad_estimate)
-        
+
         # for param_idx, param in enumerate(model_params):
         #     for chunk in torch.split(param.data, CHUNK_SIZE, dim=0):   # 8 k rows each
         #         probe = generate_perturbation(
-        #             chunk,               
+        #             chunk,
         #             1,
         #             distribution,
         #             seed=pert_seed + param_idx
@@ -869,34 +869,34 @@ def cdrge_optimize(model_params,
         # return theta to original values for next perturbation or for full updating
         for param_idx, param in enumerate(model_params):
             for chunk_idx, chunk in enumerate(torch.split(param.data, CHUNK_SIZE, dim=0)):
-                
+
                 probe = generate_perturbation(
                             chunk,                   # same shape
                             1,
                             distribution,
                             seed=pert_seed + param_idx + chunk_idx
                         )
-                
+
                 if args.beta2>0 and args.use_probe_preconditioning:
                     # we need to adjust the probe by 1/coordinate_variance but in a safe way..
                     probe.div_(args.coordinate_variance[param_idx][chunk_idx].sqrt().add_(1e-8))
                     # probe /= torch.clamp_min(coordinate_variance[param_idx][chunk_idx], 1.0)
-                    
-                     
+
+
                 chunk.add_(probe, alpha=epsilon)     # restore weights
-        
+
                 if cache_gradients:
-                    # conveniently, since we have the chunk probe, 
+                    # conveniently, since we have the chunk probe,
                     # mind as well rolling update the weighted average grad vector
                     # by accumulating the coeff * probe into the matching slice of grad_buffer
                     grad_buffer[param_idx][chunk_idx].add_(probe, alpha=grad_estimate)
-                    
-            
+
+
 
     # for idx, param in enumerate(model_params):
     #     # if idx == 3:                      # skip states tensor
     #     #     continue
-    
+
     #     # -------- accumulate gradient in FP32 -------------------------
     #     grad = None
     #     for j in range(num_perturbations):
@@ -904,7 +904,7 @@ def cdrge_optimize(model_params,
     #         coeff        = grad_estimate_list[j]       # (f⁺−f⁻)/2ε
     #         probe   = generate_perturbation(
     #                            param, coeff, distribution, seed)
-            
+
     #         grad = probe if grad is None else grad + probe
 
     #     param.data.add_(grad, alpha= -1./float(num_perturbations)   )
@@ -916,26 +916,26 @@ def cdrge_optimize(model_params,
     # param.data.add_(grad, alpha=-1. / float(num_perturbations))
 
     if cache_gradients:
-        
+
         # for buf, param in zip(grad_buffer, model_params):
             # param.data.add_(buf) # buf already stores −∇̂θ / n
         # for i, (g, param) in enumerate(zip(grad_buffer, model_params)):
         for param_idx, param in enumerate(model_params):
             for chunk_idx, chunk in enumerate(torch.split(param.data, CHUNK_SIZE, dim=0)):
-                
+
                 g = grad_buffer[param_idx][chunk_idx]
-    
-                # Apply RMSProp and/or momentum 
+
+                # Apply RMSProp and/or momentum
                 if args.beta1>0:
                     momentum_i = args.coordinate_momentum[param_idx][chunk_idx]
                     momentum_i.mul_(args.beta1).add_(g, alpha=1 - args.beta1)   # m_t
-                    m_hat = momentum_i   
+                    m_hat = momentum_i
                     if np.random.rand()>0.99:
                         print("----- m_hat:")
                         print(m_hat[:20])
                 else:
                     m_hat = g
-                
+
                 if args.beta2>0:
                     variances_i = args.coordinate_variance[param_idx][chunk_idx]
                     variances_i.mul_(args.beta2).addcmul_(g, g, value=1 - args.beta2)  # v_t
@@ -951,31 +951,31 @@ def cdrge_optimize(model_params,
                     chunk.data.add_( lr_to_eta_ratio * m_hat ) #  v_hat is already in the chunk.
                 else:
                     chunk.data.add_( lr_to_eta_ratio * m_hat / v_hat )
-    
+
                 # ---- Decoupled weight decay (AdamW style) --------------------
                 if args.weight_decay > 0.0:
                     # Skip 1-D tensors (biases, LayerNorm/BatchNorm weights)
                     if param.ndim > 1:
                         chunk.add_(chunk, alpha = -lr * args.weight_decay)
-    
 
-    
+
+
 
     else: # calculate this post from the seeds
         raise Exception("This branch is no longer maintained. Need to implement momentum and var and weight decay")
-        
+
         # for idx, param in enumerate(model_params):
         #     # grad = None
         #     for j in range(num_perturbations):
         #         seed  = all_seeds[j] + idx
         #         coeff = grad_estimate_list[j]                 # (f⁺−f⁻)/2n # no ε bc ε == lr and they cancel out
-        
+
         #         # ── NEW: accumulate probe chunk-by-chunk ─────────────────────
         #         for chunk in torch.split(param, CHUNK_SIZE, dim=0):     # 8k rows
         #             probe = generate_perturbation(
         #                         chunk, lr_to_eta_ratio * coeff, distribution, seed)
-        #             chunk.add_(probe) 
-        
+        #             chunk.add_(probe)
+
         #         # grad = probe if grad is None else grad + probe
 
 
@@ -994,8 +994,8 @@ def cdrge_optimize(model_params,
 
 
 def cdrge_no_chunking(model_params, loss_fn, lr, epsilon, iterations, num_perturbations=20,
-                   distribution='rad', antithetic=False, use_adaptive_step=False, clip_grad_norm=0.0,
-                   args=None):
+                      distribution='rad', antithetic=False, use_adaptive_step=False, clip_grad_norm=0.0,
+                      args=None):
     """DO NOT USE ... LIKELY: Central Difference Random Gradient Estimation optimization
 
     A memory-efficient implementation that avoids parameter copies
@@ -1030,7 +1030,7 @@ def cdrge_no_chunking(model_params, loss_fn, lr, epsilon, iterations, num_pertur
     }
 
     device = model_params[0].device
-    
+
     # Get macro_batch_size - default to 1 if not provided
     macro_batch_size = args.macro_batch_size if args is not None and hasattr(args, 'macro_batch_size') else 1
     if is_verbose and macro_batch_size > 1:
@@ -1041,7 +1041,7 @@ def cdrge_no_chunking(model_params, loss_fn, lr, epsilon, iterations, num_pertur
     # Current loss at start of iteration
     if is_verbose:
         print("CDRGE: Computing initial loss...")
-    
+
     # Store gradients for each parameter
     if is_verbose:
         print("CDRGE: Initializing gradients...")
@@ -1057,7 +1057,7 @@ def cdrge_no_chunking(model_params, loss_fn, lr, epsilon, iterations, num_pertur
     for j in range(num_perturbations):
         # Set a seed for this perturbation (to reproduce the same noise later)
         pert_seed = all_seeds[j]
-        
+
         ##################################################################
         # Apply positive perturbations using the seed
         ##################################################################
@@ -1072,7 +1072,7 @@ def cdrge_no_chunking(model_params, loss_fn, lr, epsilon, iterations, num_pertur
             pos_loss_batch = loss_fn()
             batch_loss = pos_loss_batch.item() if hasattr(pos_loss_batch, 'item') else float(pos_loss_batch)
             total_pos_loss += batch_loss
-            
+
         pos_loss = total_pos_loss / macro_batch_size
 
         ##################################################################
@@ -1089,34 +1089,33 @@ def cdrge_no_chunking(model_params, loss_fn, lr, epsilon, iterations, num_pertur
             neg_loss_batch = loss_fn()
             batch_loss = neg_loss_batch.item() if hasattr(neg_loss_batch, 'item') else float(neg_loss_batch)
             total_neg_loss += batch_loss
-            
+
         neg_loss = total_neg_loss / macro_batch_size
-        
-        # 2-sided estimation: (f(x+ε) - f(x-ε))/2 
+
+        # 2-sided estimation: (f(x+ε) - f(x-ε))/2
         grad_estimate = (pos_loss - neg_loss) / (2) # no epsilon bc we mult later so it cancels out
         sum_of_losses += (pos_loss + neg_loss) / (2)
         grad_estimate_list.append(grad_estimate)
-        
+
         for param_idx, param in enumerate(model_params):
             # Regenerate the same noise
             probe = generate_perturbation(param, epsilon, distribution, seed=pert_seed + param_idx)
 
             # Restore parameter by adding the perturbation
             param.data.add_(probe)
-            
+
 
     for idx, param in enumerate(model_params):
         # if idx == 3:                      # skip states tensor
         #     continue
-    
+
         # -------- accumulate gradient in FP32 -------------------------
         grad = None
         for j in range(num_perturbations):
             seed         = all_seeds[j] + idx
             coeff        = grad_estimate_list[j]       # (f⁺−f⁻)/2ε
-            probe   = generate_perturbation(
-                               param, coeff, distribution, seed)
-            
+            probe = generate_perturbation(param, coeff, distribution, seed)
+
             grad = probe if grad is None else grad + probe
 
         param.data.add_(grad, alpha= -1./float(num_perturbations)   )
@@ -1177,7 +1176,7 @@ def fdras_optimize(model_params, loss_fn, lr, epsilon, iterations, num_perturbat
     }
 
     device = model_params[0].device
-    
+
     # Get macro_batch_size - default to 1 if not provided
     macro_batch_size = args.macro_batch_size if args is not None and hasattr(args, 'macro_batch_size') else 1
     if is_verbose and macro_batch_size > 1:
@@ -1188,16 +1187,16 @@ def fdras_optimize(model_params, loss_fn, lr, epsilon, iterations, num_perturbat
     # Current loss at start of iteration
     if is_verbose:
         print("FDRAS: Computing initial loss...")
-    
+
     # Compute initial loss as average across all macro batches
     total_clean_loss = 0.0
     for _ in range(macro_batch_size):
         clean_loss_batch = loss_fn()  # Current model state loss
         batch_loss = clean_loss_batch.item() if hasattr(clean_loss_batch, 'item') else float(clean_loss_batch)
         total_clean_loss += batch_loss
-        
+
     clean_loss = total_clean_loss / macro_batch_size
-    
+
     if is_verbose:
         print(f"FDRAS: Initial loss: {clean_loss:.6f}")
 
@@ -1207,7 +1206,7 @@ def fdras_optimize(model_params, loss_fn, lr, epsilon, iterations, num_perturbat
     gradients = [torch.zeros_like(p.data) for p in model_params]
 
     antithetic_mult = 1
-    
+
     # Evaluate perturbations
     for j in range(num_perturbations):
         # Set a seed for this perturbation (to reproduce the same noise later)
@@ -1215,7 +1214,7 @@ def fdras_optimize(model_params, loss_fn, lr, epsilon, iterations, num_perturbat
 
         if antithetic and j%2==1:
             antithetic_mult = -1
-            
+
         # Apply positive perturbations using the seed
         for param_idx, param in enumerate(model_params):
             # Generate and apply perturbation
@@ -1228,9 +1227,9 @@ def fdras_optimize(model_params, loss_fn, lr, epsilon, iterations, num_perturbat
             pos_loss_batch = loss_fn()
             batch_loss = pos_loss_batch.item() if hasattr(pos_loss_batch, 'item') else float(pos_loss_batch)
             total_pos_loss += batch_loss
-            
+
         pos_loss = total_pos_loss / macro_batch_size
-        
+
         # Single-sided estimation: (f(x+ε) - f(x))/ε
         grad_estimate = (pos_loss - clean_loss) / epsilon
 
@@ -1487,7 +1486,7 @@ def SPSA2(model_params: List[torch.Tensor],
             print("raw_curve small")
             raw_curv = 1.
         denom = raw_curv
-        
+
         coeff = -(pos_v - neg_v) / (2 * num_perturbations * denom)
 
         grad_coeffs.append(coeff)
@@ -1501,7 +1500,7 @@ def SPSA2(model_params: List[torch.Tensor],
                   f"pos_v_pos_u={pos_v_pos_u:.4f} pos_v_neg_u={pos_v_neg_u:.4f} "
                   f"neg_v_pos_u={neg_v_pos_u:.4f} neg_v_neg_u={neg_v_neg_u:.4f} " # vTu {vTu:.4f}
             )
-            
+
 
     # ───── Apply the accumulated update (cached or regenerated) ──────────────
     if cache_gradients:
@@ -1577,7 +1576,7 @@ def BanditSPSA(model_params,
     # print("="*50)
     # print(st)
     # print("="*50)
-    
+
     # Hard reset every 1000 updates
     if step and step % 1000 == 0:
         reservoir.clear()
@@ -1631,7 +1630,7 @@ def BanditSPSA(model_params,
                       f"pulls={r['pulls']:4d}  last_grad={r['grads'][-1][1]:+.2e}")
         else:
             print("\n[reservoir is empty]")
-    
+
         # 2) UCB scores for the seeds we just chose to exploit
         if exploit_seeds:
             print("\n── Exploit selection this step ──")
@@ -1647,9 +1646,9 @@ def BanditSPSA(model_params,
         print("────────────────────────────────────\n")
         # pdb.set_trace()
     # ───────────────── END VERBOSE BLOCK ────────────────────────────────
-    
 
-    
+
+
     # exploration seeds (unique & not in reservoir)
     explore_seeds = []
     while len(explore_seeds) < n_explore:
@@ -1832,28 +1831,28 @@ def BanditSPSA(model_params,
 #     # ────────────────────────────────────────────────────────────────────
 #     # 0.  persistent state for the sub-space                            │
 #     # ────────────────────────────────────────────────────────────────────
-#     rank = args.sanger_rank  
+#     rank = args.sanger_rank
 #     warmup_iters = args.warmup_iters
 #     base_lr = 1e-4
-    
+
 #     # WARMUP THE LR SO YOU GIVE THE SUBSPACE A CHANCE TO LEARN ANYTHING
 #     # update lr warmup factor
 #     warmup_factor = min(iterations / float(warmup_iters), 1.0)
-    
+
 #     # update LR for this step
 #     learning_rate = base_lr + args.learning_rate * warmup_factor
-    
+
 #     beta_eigen_sanger = base_lr + args.beta_eigen_sanger - args.beta_eigen_sanger * warmup_factor
-    
+
 #     dim       = sum(p.numel() for p in model_params)
 #     device    = model_params[0].device
 #     dtype     = model_params[0].dtype
-    
+
 #     if not hasattr(args, "_state"):
 #         print("initializing Sanger V")
 #         V = torch.empty(dim, rank, device=device, dtype=torch.float32).normal_()
 #         V, _ = torch.linalg.qr(V, mode="reduced")          # orthonormal fp32 columns
-    
+
 #         args._state = {
 #             "step": 0,
 #             "V"  : V,                                      # (d × n)  fp32
@@ -1942,7 +1941,7 @@ def BanditSPSA(model_params,
 #     g_proj      = V.T @ g_flat                       # (n,)
 #     pre_g_flat = V @ (g_proj / lam)                 # whitened/parallel part
 #     # pre_g_flat  += g_flat - V @ g_proj                # orthogonal part (noise?)
-    
+
 #     # distribute pre_g_flat back into param-shaped chunks & update θ
 #     offset = 0
 #     for p_idx, p in enumerate(model_params):
@@ -2020,7 +2019,7 @@ def BanditSPSA(model_params,
 
 
 
-# second try. got 1 working thats all.. 
+# second try. got 1 working thats all..
 # def SangerSPSA(model_params,
 #            loss_fn,
 #            lr,
@@ -2289,7 +2288,7 @@ def SangerSPSA(model_params,
     #         g_norm = g_flat.norm()
 
     # ───── 2. pre-condition & update θ ─────
-    pre_g  = P(g_flat) + alpha_eye_scalar * g_flat  
+    pre_g  = P(g_flat) + alpha_eye_scalar * g_flat
 
     # Scale update so L2(Δθ) ≈ ε·√d (≈ ε per parameter on average)
     update = pre_g * lr_eta
@@ -2352,7 +2351,7 @@ def SangerSPSA(model_params,
         if (step + 1) % args.sanger_qr_every == 0:
             try:
                 W, _ = torch.linalg.qr(W, mode="reduced")
-                
+
             except RuntimeError:
                 pass
 
@@ -2403,13 +2402,13 @@ def train_step(model, args, batch_np, loss_closure, optimizer=None):
         optimizer.step()
         return {"train_loss": [total_loss], "grad_norm": [0.0]}
 
-        
+
     elif args.solver=="1SPSA":
         # ------------------- zeroth-order (CD-RGE / FDRAS) --------------------
         with torch.no_grad():
             # can also replace this with cdrge_optimize, cdrge_no_chunking, or fdras_optimized depending on what you want to test
-             
-            return cdrge_optimize( 
+
+            return cdrge_optimize(
                 model_params      = list(model.parameters()),
                 loss_fn           = loss_closure,
                 lr                = args.learning_rate,
@@ -2423,11 +2422,11 @@ def train_step(model, args, batch_np, loss_closure, optimizer=None):
                 cache_gradients   = True,
                 args              = args,
             )
-            
+
     elif args.solver=="1.5-SPSA":
         # ------------------- zeroth-order (CD-RGE / FDRAS) --------------------
         with torch.no_grad():
-            return SPSA1_5( 
+            return SPSA1_5(
                 model_params      = list(model.parameters()),
                 loss_fn           = loss_closure,
                 lr                = args.learning_rate,
@@ -2441,10 +2440,10 @@ def train_step(model, args, batch_np, loss_closure, optimizer=None):
                 cache_gradients   = True,
                 args              = args,
             )
-            
+
     elif args.solver=="2SPSA":
         with torch.no_grad():
-            return SPSA2( 
+            return SPSA2(
                 model_params      = list(model.parameters()),
                 loss_fn           = loss_closure,
                 lr                = args.learning_rate,
@@ -2458,10 +2457,10 @@ def train_step(model, args, batch_np, loss_closure, optimizer=None):
                 cache_gradients   = True,
                 args              = args,
             )
-            
+
     elif args.solver=="BanditSPSA":
         with torch.no_grad():
-            return BanditSPSA( 
+            return BanditSPSA(
                 model_params      = list(model.parameters()),
                 loss_fn           = loss_closure,
                 lr                = args.learning_rate,
@@ -2474,12 +2473,12 @@ def train_step(model, args, batch_np, loss_closure, optimizer=None):
                 clip_grad_norm    = args.grad_clip,
                 cache_gradients   = True,
                 args              = args,
-            ) 
+            )
 
 
     elif args.solver=="Sanger-SPSA":
         with torch.no_grad():
-            return SangerSPSA( 
+            return SangerSPSA(
                 model_params      = list(model.parameters()),
                 loss_fn           = loss_closure,
                 lr                = args.learning_rate,
@@ -2492,8 +2491,8 @@ def train_step(model, args, batch_np, loss_closure, optimizer=None):
                 clip_grad_norm    = args.grad_clip,
                 cache_gradients   = True,
                 args              = args,
-            ) 
-    
+            )
+
     else:
         raise Exception(f"no solver implemented named {args.solver}")
 
@@ -2566,7 +2565,7 @@ def train(args):
         else:
             run_name = args.wandb_run_name
 
-        
+
         # Initialize wandb
         wandb.init(
             project=args.wandb_proj,
@@ -2575,12 +2574,12 @@ def train(args):
             reinit=True
         )
         wandb_enabled = True
-        
+
         print(f"Weights & Biases logging enabled. Project: {args.wandb_proj}, Run: {run_name}")
     else:
         # Don't show warnings for missing attributes in test mode
         print("No Weights & Biases logging enabled.")
-    
+
     # Initialize tokenizer
     if args.tokenizer == "char_level" or not TIKTOKEN_AVAILABLE:
         if not TIKTOKEN_AVAILABLE and args.tokenizer == "hf_tiktoken":
@@ -2613,13 +2612,13 @@ def train(args):
                 tok = NumericTokenizer(max_num=args.max_num)
             else:
                 tok = CharTokenizer()
-    
-    dtype = torch.float32 if args.solver=="BPTT" else torch.float32 # torch.float16 # bptt in fp16 is unstable... try it but be weary.. vanishing/exploding grads await you 
+
+    dtype = torch.float32 if args.solver=="BPTT" else torch.float32 # torch.float16 # bptt in fp16 is unstable... try it but be weary.. vanishing/exploding grads await you
 
     # ───────── Model construction (LSTM or DNC) ─────────
     embed = nn.Embedding(tok.vocab_size, args.input_size,
                          device=device, dtype=dtype)
-    
+
     if args.model_type.upper() == "LSTM":
         model = LSTM(
             input_size   = args.input_size,
@@ -2644,7 +2643,7 @@ def train(args):
             device       = device,
             dtype        = dtype,
         )
-    
+
     elif args.model_type == "Transformer":
         model = Transformer(
             input_size   = args.input_size,
@@ -2683,25 +2682,25 @@ def train(args):
         )
     else:
         raise ValueError(f"Unknown model_type {args.model_type}")
-    
+
     model_params = list(model.parameters())          # <- used by zeroth-order
     param_count  = sum(p.numel() for p in model_params)
     bytes_per_param = 4 if args.solver=="BPTT" else 2
     param_memory_mb = param_count * bytes_per_param / (1024*1024)
-    
+
     print(f"  Parameters: {param_count:,} ({param_memory_mb:.2f} MB)")
 
-    
-    
-    
+
+
+
     # Determine bytes per parameter based on optimizer type
     if args.solver=="BPTT":
         bytes_per_param = 4  # float32 = 4 bytes
     else:
-        bytes_per_param = 4 
+        bytes_per_param = 4
         # bytes_per_param = 2  # bfloat16 = 2 bytes
-        
-    
+
+
     # Set up results dictionary
     results = {
         'args': vars(args),
@@ -2717,7 +2716,7 @@ def train(args):
             'iterations': []
         }
     }
-    
+
     # Main training loop
     print(f"Starting training for task: {args.task}")
     print("="*50)
@@ -2729,26 +2728,26 @@ def train(args):
     has_overfit_flag = hasattr(args, 'overfit_to_one_batch_flag') and args.overfit_to_one_batch_flag
 
     # Generate first batch to compute initial loss
-    
+
     init_batch = get_examples_for_task(
         args.task, tok, args.micro_batch_size, args.seq_length,
         split='train', max_num=args.max_num
     )
-    
+
     if has_overfit_flag:
         print("="*50)
         print("OVERFITTING TO A SINGLE BATCH!")
-        
 
-        train_batch = init_batch 
-        # sep_token = tokenizer.token_to_id.get(" ", 0) 
+
+        train_batch = init_batch
+        # sep_token = tokenizer.token_to_id.get(" ", 0)
 
     # ───────── Initial loss / accuracy BEFORE training ─────────
     with torch.no_grad():
         ids_init   = torch.as_tensor(init_batch, device=device, dtype=torch.long)
         x_emb_init = model.embed(ids_init)               # shared embed layer
         init_logits, _, _ = model(x_emb_init, require_gradients=False)            # works for LSTM & DNC
-    
+
         initial_loss     = compute_task_loss(init_logits, init_batch, tok, args.task)
         initial_accuracy = compute_task_accuracy(init_logits, init_batch, tok, args.task)
 
@@ -2767,7 +2766,7 @@ def train(args):
     results['train_metrics']['accuracy'].append(initial_accuracy)
     results['train_metrics']['iterations'].append(0)
     results['train_metrics']['time'].append(0)
-    status = "training" 
+    status = "training"
 
     require_gradients = False
     if args.solver == "BPTT":
@@ -2777,19 +2776,19 @@ def train(args):
             # Use AdamW with lower memory footprint than standard Adam
             print("Using AdamW")
             optimizer = torch.optim.AdamW(
-                model_params, 
+                model_params,
                 lr=args.learning_rate,
                 betas=(args.beta1, args.beta2),
                 eps=1e-8,  # Slightly larger epsilon for stability
-                weight_decay=args.weight_decay,  
+                weight_decay=args.weight_decay,
                 amsgrad=False  # Disable amsgrad to save memory
             )
         else:
             print("Using vanilla SGD")
             optimizer = torch.optim.SGD(
-                model_params, 
+                model_params,
                 lr=args.learning_rate,
-                momentum=args.beta1, 
+                momentum=args.beta1,
                 weight_decay=args.weight_decay
             )
     else:
@@ -2798,7 +2797,7 @@ def train(args):
     if args.hidden_size<4096:
         args.cache_gradients = True # THIS WILL COST US VRAM, but speed us up at the end, if we have the space we should use it.
     else:
-        args.cache_gradients = False # THIS WILL SAVE VRAM, but slow us down a bit at the end. 
+        args.cache_gradients = False # THIS WILL SAVE VRAM, but slow us down a bit at the end.
 
     total_iterations = 0
     for iteration in range(args.max_iterations):
@@ -2809,29 +2808,29 @@ def train(args):
                 args.task, tok, args.micro_batch_size, args.seq_length,
                 split='train', max_num=args.max_num
             )
-                
+
         # Define loss function for current batch
         def compute_loss(return_acc=False):
             ids  = torch.as_tensor(train_batch, device=device, dtype=torch.long)
             xemb = model.embed(ids)                     # [B,T,E]
             logits, _, _ = model(xemb, require_gradients=require_gradients)                  # same for LSTM & DNC
-        
+
             loss = compute_task_loss(logits, train_batch, tok, args.task)
             if return_acc:
                 acc = compute_task_accuracy(logits, train_batch, tok, args.task)
                 return loss, acc
             return loss
-    
-        
+
+
         step_metrics = train_step(model, args, train_batch, compute_loss, optimizer)
         train_accuracy = -1.0  # or calculate here if you want but loss is fine for me
-        
+
         # Store metrics
         results['train_metrics']['loss'].append(step_metrics['train_loss'][-1])
-        results['train_metrics']['accuracy'].append(train_accuracy) # placeholder for now... 
+        results['train_metrics']['accuracy'].append(train_accuracy) # placeholder for now...
         results['train_metrics']['iterations'].append(iteration + 1)
         results['train_metrics']['time'].append(time.time() - start_time)
-        
+
         # Calculate iteration time and other metrics
         iteration_time = time.time() - start_time
         total_elapsed = time.time() - total_start_time
@@ -2856,7 +2855,7 @@ def train(args):
                 print(args)
                 total_iterations = iteration
                 status = "success"
-                
+
                 # time.sleep(100000)
                 # return
                 break
@@ -2913,17 +2912,17 @@ def train(args):
         final_logits, _, _ = model(x_emb_final, require_gradients=False)
         final_loss     = compute_task_loss(final_logits, init_batch, tok, args.task)
         final_accuracy = compute_task_accuracy(final_logits, init_batch, tok, args.task)
-        
+
     results['train_metrics']['loss'].append(final_loss)
     results['train_metrics']['accuracy'].append(final_accuracy)
     results['train_metrics']['iterations'].append(total_iterations)
     results['train_metrics']['time'].append(0)
     results['param_count'] = param_count
-    
+
     results["status"] = status
 
     print(f"Final loss (after training): {final_loss:.4f}, Accuracy: {final_accuracy:.4f}")
-    
+
     # Log final results
     total_time = time.time() - total_start_time
     print("\nTraining completed!")
@@ -2937,11 +2936,11 @@ def train(args):
         del model_params           # list of tensors
     if 'optimizer' in locals() and optimizer is not None:
         del optimizer
-    
+
     # --- force Python to release any lingering tensors -----------------------
     import gc
     gc.collect()                   # releases refs held only by GC
-    
+
     # --- tell the CUDA caching allocator to give memory back to the pool ----
     if torch.cuda.is_available():
         torch.cuda.empty_cache()   # frees cached blocks
@@ -2951,9 +2950,9 @@ def train(args):
     # print("all results")
     # print(results)
     # print("="*50)
-    
+
     return results
-    
+
 
 import argparse, time, math, traceback
 import torch
@@ -2962,9 +2961,9 @@ import argparse, time, math, torch
 
 def run_unittest(args):
     """Run a battery of quick sanity tests on `train()`."""
-    
+
     batch_size = args.micro_batch_size
-     
+
 
     # ---------------------------------------------------------------------- #
     #  All experiment configurations                                         #
@@ -2985,10 +2984,10 @@ def run_unittest(args):
             # "medium-bptt-default-dnc": dict(model_size="medium", hidden_size=9600,  num_heads=64,  head_size=150, model_type="DNC",
             #                                 solver="BPTT", use_adam=True, learning_rate=0.0001, epsilon=0.0001,  micro_batch_size=int(batch_size/1), macro_batch_size=1,
             #                                 description="Medium dnc with BPTT with Adam"),
-            
+
             # ========================= DNC cdrge-96 ================================= #
             # "tiny-cdrge96-default-dnc":  dict(model_size="tiny",   hidden_size=240,   num_heads=12,  head_size=20, memory_size=128, model_type="DNC",
-            #                               learning_rate=0.01, epsilon=0.01,   #.01 for 1SPSA,  
+            #                               learning_rate=0.01, epsilon=0.01,   #.01 for 1SPSA,
             #                                   micro_batch_size=int(batch_size/1), macro_batch_size=1,
             #                               num_perturbations=96,  antithetic=False,
             #                               description="Tiny dnc with cdrge@96"),
@@ -3014,10 +3013,10 @@ def run_unittest(args):
             #                               learning_rate=0.0001, epsilon=0.0001, micro_batch_size=int(batch_size/1), macro_batch_size=1,
             #                               num_perturbations=96,  antithetic=False,
             #                               description="XXLarge dnc with cdrge@96"),
-        
+
             # ========================= DNC cdrge-512 ================================ #
             # "tiny-cdrge512-default-dnc":  dict(model_size="tiny",   hidden_size=240,   num_heads=12,  head_size=20, memory_size=128, model_type="DNC",
-            #                                learning_rate=0.01, epsilon=0.01, #.1 for 1SPSA,  
+            #                                learning_rate=0.01, epsilon=0.01, #.1 for 1SPSA,
             #                                    micro_batch_size=int(batch_size/1), macro_batch_size=1,
             #                                num_perturbations=512, antithetic=False,
             #                                description="Tiny dnc with cdrge@512"),
@@ -3046,9 +3045,9 @@ def run_unittest(args):
 
             ### LSTM TESTS
             # ========================= LSTM BPTT ===================================== #
-            
+
             # "tiny-bptt-default-lstm":   dict(model_size="tiny",   hidden_size=240,   num_heads=12,  head_size=20, model_type="LSTM",
-            #                             solver="BPTT", use_adam=True, learning_rate=0.01, epsilon=0.01,   micro_batch_size=int(batch_size/1), macro_batch_size=1, 
+            #                             solver="BPTT", use_adam=True, learning_rate=0.01, epsilon=0.01,   micro_batch_size=int(batch_size/1), macro_batch_size=1,
             #                             description="Tiny lstm with BPTT"),
             # "small-bptt-default-lstm":  dict(model_size="small",  hidden_size=1600,  num_heads=32,  head_size=50, model_type="LSTM",
             #                             solver="BPTT", use_adam=True, learning_rate=0.01, epsilon=0.01,  micro_batch_size=int(batch_size/1), macro_batch_size=1,
@@ -3056,25 +3055,25 @@ def run_unittest(args):
             # "medium-bptt-default-lstm": dict(model_size="medium", hidden_size=9600,  num_heads=64,  head_size=150,model_type="LSTM",
             #                             solver="BPTT", use_adam=True, learning_rate=0.001, epsilon=0.001, micro_batch_size=int(batch_size/128), macro_batch_size=128,
             #                             description="Medium lstm with BPTT - optimized for GPU memory constraints"),
-            
+
             # ========================= LSTM cdrge-96 ================================= #
             "tiny-banditspsa-96-default-lstm":  dict(model_size="tiny",   hidden_size=240,   num_heads=12,  head_size=20, model_type="LSTM",
                                           learning_rate=0.001, epsilon=0.001,    micro_batch_size=int(batch_size/1), macro_batch_size=1,
-                                          num_perturbations=96,  antithetic=False, seed=42, solver="BanditSPSA", beta1=0.0, beta2=0.0, 
+                                          num_perturbations=96,  antithetic=False, seed=42, solver="BanditSPSA", beta1=0.0, beta2=0.0,
                                           use_probe_preconditioning=False, description="Tiny lstm with cdrge@96"),
             # "tiny-cdrge96-default-lstm":  dict(model_size="tiny",   hidden_size=2400,   num_heads=12,  head_size=20,model_type="LSTM",
             #                               learning_rate=0.1, epsilon=0.1,    micro_batch_size=int(batch_size/1), macro_batch_size=1,
-            #                               num_perturbations=96,  antithetic=False, seed=42, solver="1SPSA", beta1=0.0, beta2=0.0, 
+            #                               num_perturbations=96,  antithetic=False, seed=42, solver="1SPSA", beta1=0.0, beta2=0.0,
             #                               use_probe_preconditioning=False, description="Tiny lstm with cdrge@96"),
 
-        
+
             # "tiny-cdrge96-default-lstm-with-rmsprop":  dict(model_size="tiny",   hidden_size=2400,   num_heads=12,  head_size=20,model_type="LSTM",
             #                               learning_rate=0.1, epsilon=0.1,    micro_batch_size=int(batch_size/1), macro_batch_size=1,
-            #                               num_perturbations=96,  antithetic=False, seed=42, solver="1SPSA", beta1=0.0, beta2=0.1, 
+            #                               num_perturbations=96,  antithetic=False, seed=42, solver="1SPSA", beta1=0.0, beta2=0.1,
             #                               use_probe_preconditioning=False, description="Tiny lstm with cdrge@96"),
             # "tiny-cdrge96-default-lstm-with-rmsprop-probe-precond":  dict(model_size="tiny",   hidden_size=2400,   num_heads=12,  head_size=20,model_type="LSTM",
             #                               learning_rate=0.1, epsilon=0.1,    micro_batch_size=int(batch_size/1), macro_batch_size=1,
-            #                               num_perturbations=96,  antithetic=False, seed=42, solver="1SPSA", beta1=0.0, beta2=0.1, 
+            #                               num_perturbations=96,  antithetic=False, seed=42, solver="1SPSA", beta1=0.0, beta2=0.1,
             #                               use_probe_preconditioning=True, description="Tiny lstm with cdrge@96"),
             # "small-cdrge96-default-lstm": dict(model_size="small",  hidden_size=1600,  num_heads=32,  head_size=50,model_type="LSTM",
             #                               learning_rate=0.01, epsilon=0.01, micro_batch_size=int(batch_size/1), macro_batch_size=1,
@@ -3092,11 +3091,11 @@ def run_unittest(args):
             #                               learning_rate=0.01, epsilon=0.01,  micro_batch_size=int(batch_size/1), macro_batch_size=1,
             #                               num_perturbations=96,  antithetic=False,
             #                               description="XLarge lstm with cdrge@96"),
-        
+
             # ========================= LSTM cdrge-512 ================================ #
             # "tiny-cdrge512-default-lstm":  dict(model_size="tiny",   hidden_size=240,   num_heads=12,  head_size=20,model_type="LSTM",
             #                                learning_rate=0.01, epsilon=0.01,   micro_batch_size=int(batch_size/1), macro_batch_size=1,
-            #                                num_perturbations=512, antithetic=False, solver="1SPSA", 
+            #                                num_perturbations=512, antithetic=False, solver="1SPSA",
             #                                description="Tiny lstm with cdrge@512"),
             # "small-cdrge512-default-lstm": dict(model_size="small",  hidden_size=1600,  num_heads=32,  head_size=50,model_type="LSTM",
             #                                learning_rate=0.01, epsilon=0.01,  micro_batch_size=int(batch_size/1), macro_batch_size=1,
@@ -3117,7 +3116,7 @@ def run_unittest(args):
 
 
     }
-    
+
 
 
     # ---------------------------------------------------------------------- #
@@ -3129,22 +3128,22 @@ def run_unittest(args):
         print("="*50)
         print("="*50)
         print(f"\n=== {run_name}: {run_cfg['description']} ===")
-    
+
         # Get a fresh copy of default CLI args
         run_args = vars(get_argument_parser())
 
         run_args["overfit_to_one_batch_flag"] = True
-        
+
         # Override defaults with specific run config
         run_args.update(run_cfg)
-    
+
         # Create final args object
         args = argparse.Namespace(**run_args)
         print(args)
 
         try:
             t0 = time.time()
-            results = train(args)                     
+            results = train(args)
             total_time = time.time() - t0
             avg_time   = total_time / args.max_iterations
 
@@ -3180,7 +3179,7 @@ def run_unittest(args):
             # PyTorch 2.1+ raises a dedicated subclass
             oom = isinstance(e, torch.cuda.OutOfMemoryError) \
                   or "out of memory" in str(e).lower()
-        
+
             if oom:
                 raise RuntimeError(
                     "\nCUDA OOM detected.\n"
@@ -3193,7 +3192,7 @@ def run_unittest(args):
             else:
                 # not an OOM → re-raise unchanged
                 raise
-            
+
             # return
             # Continue running the remaining tests instead of aborting immediately
 
@@ -3249,7 +3248,7 @@ def get_argument_parser():
     parser.add_argument("--num_perturbations", type=int, default=20)
     parser.add_argument("--antithetic_sampling", action="store_true")
     parser.add_argument("--use_adaptive_step", action="store_true",
-                        help="Use adaptive step sizes for FDRAS optimization") 
+                        help="Use adaptive step sizes for FDRAS optimization")
     parser.add_argument("--grad_clip", type=float, default=0.0)
     parser.add_argument("--beta1", type=float, default=0.0, help="for momentum")
     parser.add_argument("--beta2", type=float, default=0.0, help="for RMSProp-style variance")
@@ -3266,11 +3265,11 @@ def get_argument_parser():
     parser.add_argument("--sanger_qr_every", type=int, default=10000000)
     parser.add_argument("--warmup_iters", type=int, default=100)
     parser.add_argument("--alpha_eye_scalar", type=float, default=1.)
-    
-    
+
+
     # Curriculum learning
     parser.add_argument("--curriculum", action="store_true")
-    parser.add_argument("--curriculum_steps", type=int, default=5) 
+    parser.add_argument("--curriculum_steps", type=int, default=5)
 
 
     # Experiment tracking
@@ -3284,11 +3283,11 @@ def get_argument_parser():
 
     # Tokenization
     parser.add_argument("--tokenizer", type=str, default="char_level",
-                       choices=["char_level", "numeric", "hf_tiktoken"])
+                        choices=["char_level", "numeric", "hf_tiktoken"])
     # Unit Test
     parser.add_argument("--unit_test", action="store_true")
 
-    # Logging 
+    # Logging
     parser.add_argument("--output_dir", type=str, default="./results_default/")
     parser.add_argument("--oom_backoff_sec", type=int, default=600) # 10 min
     parser.add_argument("--oom_max_retries", type=int, default=1000)
@@ -3296,7 +3295,7 @@ def get_argument_parser():
 
      # Parse the arguments
     args = parser.parse_args()
-    
+
     return args
 
 
@@ -3307,7 +3306,7 @@ def get_argument_parser():
 
 #     # Set random seed
 #     if args.seed == -1:
-#         args.seed = np.random.randint(1, 1001) 
+#         args.seed = np.random.randint(1, 1001)
 #         print(f"Setting seed to {args.seed}")
 
 #     set_seed(args.seed)
@@ -3321,7 +3320,7 @@ def get_argument_parser():
 #         return results
 
 
-import argparse, hashlib          
+import argparse, hashlib
 import json, time, traceback, pathlib, torch, numpy as np
 import argparse, hashlib, json, time, traceback, pathlib
 import torch, numpy as np
@@ -3367,9 +3366,9 @@ def main() -> None:
             if hasattr(args, "_state"):
                 # print(args._state)
                 args._state = None
-                
-            
-            
+
+
+
             payload = {
                 "status": status,
                 "seed": int(args.seed),
@@ -3381,7 +3380,7 @@ def main() -> None:
                 "wandb_run_name": run_prefix,
                 "args": vars(args),
             }
-            
+
             json.dump(payload, open(out_root / filename, "w"), indent=2)
             print(f"[INFO] Success → {filename} status {status} iters {iters}")
             return
