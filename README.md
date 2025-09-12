@@ -19,6 +19,7 @@ All experiments were run on **A40 GPUs** (46 GB) obtained from [RunPod](https://
 ### 1.1. System packages
 ```bash
 # As root
+export HOME=/workspace
 cd /workspace
 apt update -y
 apt install -y screen vim micro nano unzip
