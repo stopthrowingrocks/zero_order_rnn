@@ -621,6 +621,7 @@ def load_distributed_checkpoint(optimizer, ckpt_path, device, rank):
 # Main Routine
 # =============================================================================
 def main():
+    init_time = time.perf_counter()
     import os
     os.environ["WANDB_API_KEY"] = ""
 
@@ -743,8 +744,8 @@ def main():
     try:
         torch.cuda.set_device(args.local_rank)
     except RuntimeError as e:
-        print(e)
         print(f"Error metadata. Local rank: {args.local_rank}, CUDA Available: {torch.cuda.is_available()}, Device Count: {torch.cuda.device_count()}, GPU Name 0: {torch.cuda.get_device_name(0)}")
+        raise e
 
     dist.init_process_group(backend="nccl")
     rank = dist.get_rank()
@@ -980,6 +981,7 @@ def main():
                 raise Exception("HUGGING FACE ISSUES AGAIN!")
     print("Got the OWT dataset!")
 
+    print(f"Took {(time.perf_counter() - init_time):.6f} seconds to spin up. Now ready for training.")
     #####################################################################################
     # START TRAINING
     #####################################################################################
