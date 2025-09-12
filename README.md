@@ -18,13 +18,16 @@ All experiments were run on **A40 GPUs** (46 GB) obtained from [RunPod](https://
 
 ### 1.1. System packages
 ```bash
-sudo apt update -y
-sudo apt install -y screen vim micro nano unzip
+# As root
+cd /workspace
+apt update -y
+apt install -y screen vim micro nano unzip
 ```
 
 ### 1.2. Python environment
 ```bash
-# (Optionally) create a fresh conda or venv before this step
+python -m venv zorn
+source zorn/bin/activate
 pip install --upgrade pip
 pip install transformers datasets timeout_decorator wandb matplotlib pynvml neptune
 pip install --upgrade "filelock>=3.12"
@@ -41,6 +44,8 @@ cd ..
 
 ### 1.4. Change executable permissions for shell scripts
 ```bash
+git clone https://github.com/stopthrowingrocks/zero_order_rnn
+cd zero_order_rnn
 chmod +x ./scripts/*.sh      # ensure helper scripts are executable
 ```
 
