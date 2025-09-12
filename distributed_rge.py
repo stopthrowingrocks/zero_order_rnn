@@ -621,6 +621,7 @@ def load_distributed_checkpoint(optimizer, ckpt_path, device, rank):
 # Main Routine
 # =============================================================================
 def main():
+    init_time = time.perf_counter()
     import os
     os.environ["WANDB_API_KEY"] = ""
 
@@ -980,6 +981,7 @@ def main():
                 raise Exception("HUGGING FACE ISSUES AGAIN!")
     print("Got the OWT dataset!")
 
+    print(f"Took {(time.perf_counter() - init_time):.6f} seconds to spin up. Now ready for training.")
     #####################################################################################
     # START TRAINING
     #####################################################################################
