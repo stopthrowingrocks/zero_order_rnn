@@ -996,7 +996,7 @@ def main():
 
         for i in range(int(args.max_iters) ):
             #####################################################################################
-            # Sample x_ids,y from dataset
+            # Sample (x_ids,y) from dataset
             #####################################################################################
 
             if args.mode == "train" or (args.mode == "test"  and i==0):
