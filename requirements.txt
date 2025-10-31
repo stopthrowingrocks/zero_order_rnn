@@ -6,3 +6,4 @@ matplotlib
 pynvml
 neptune
 flashrnn
+hf-transfer
