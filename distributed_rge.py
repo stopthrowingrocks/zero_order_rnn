@@ -74,7 +74,7 @@ import warnings
 from pathlib import Path
 from simpletokenizers.simpletokenizers import CharTokenizer, NumericTokenizer, get_tiktoken
 from models.models        import LSTM, DNC
-from tasks.tasks          import generate_openwebtext_task, compute_task_loss, compute_task_accuracy
+from tasks.tasks          import generate_copy_task, generate_openwebtext_task, compute_task_loss, compute_task_accuracy
 
 
 try:
@@ -778,13 +778,17 @@ def main():
         print("Decode BOS:", tokenizer.decode([tokenizer.bos_token_id]))
         print("Decode EOS:", tokenizer.decode([tokenizer.eos_token_id]))
         criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id).to(device)
-    else:
+    elif args.tokenizer == "char":
         tokenizer = CharTokenizer()
         # vocab_list = tokenizer.vocab_list
         # char_to_id = tokenizer.char_to_id
         # id_to_char = tokenizer.id_to_char
         vocab_size = len(tokenizer.vocab_list)
         criterion = nn.CrossEntropyLoss().to(device)
+    else:
+        vocab_size = 60 # + 4 for administrative tokens = 64 tokens total
+        args.min_tokens = 10
+        args.max_tokens = 128
 
     # vocab_list, char_to_id, id_to_char = get_char_vocab()
     # vocab_size = len(vocab_list)
@@ -815,7 +819,7 @@ def main():
 
     # Combine all parts
     if args.wandb_run=="" or args.wandb_run is None:
-         args.wandb_run = run_name + model_params + train_params + opt_params
+        args.wandb_run = run_name + model_params + train_params + opt_params
 
 
     log_msg("Trying first dist.barrier(), if hanging here, no infiniband likely on node, need to turn off p2p",rank,"if so, run export NCCL_P2P_DISABLE=1")
@@ -1010,13 +1014,20 @@ def main():
                         sampled_seq_len = random.randint(args.min_seq_len, current_max_seq_len)
 
 
-                        x_ids_temp, y_temp = generate_openwebtext_task(
-                            num_samples     = args.batch_size,
-                            ds              = ds["train"],
-                            tokenizer       = tokenizer,
-                            min_tokens      = args.min_seq_len,
-                            max_tokens      = sampled_seq_len,
-                            device          = device
+                        # x_ids_temp, y_temp = generate_openwebtext_task(
+                        #     num_samples     = args.batch_size,
+                        #     ds              = ds["train"],
+                        #     tokenizer       = tokenizer,
+                        #     min_tokens      = args.min_seq_len,
+                        #     max_tokens      = sampled_seq_len,
+                        #     device          = device
+                        # )
+
+                        x_ids_temp, y_temp = generate_copy_task(
+                            num_samples = args.batch_size,
+                            vocab_size = args.vocab_size,
+                            min_tokens = args.min_tokens,
+                            max_tokens = args.max_tokens,
                         )
 
                         # x_ids_temp, y_temp = generate_openwebtext_task_unified(
@@ -1160,14 +1171,22 @@ def main():
                         #     x_ids = str_to_tensor(x_strs, char_to_id).to(device)
                         #     y = str_to_tensor(y_strs, char_to_id).to(device)
 
-                        val_x_ids, val_y  = generate_openwebtext_task(
-                            num_samples     = args.batch_size,
-                            ds              = ds["validation"],
-                            tokenizer       = tokenizer,
-                            min_tokens      = args.min_seq_len,
-                            max_tokens      = sampled_seq_len,
-                            device          = device
+                        # val_x_ids, val_y  = generate_openwebtext_task(
+                        #     num_samples     = args.batch_size,
+                        #     ds              = ds["validation"],
+                        #     tokenizer       = tokenizer,
+                        #     min_tokens      = args.min_seq_len,
+                        #     max_tokens      = sampled_seq_len,
+                        #     device          = device
+                        # )
+
+                        val_x_ids, val_y = generate_copy_task(
+                            num_samples = args.batch_size,
+                            vocab_size = args.vocab_size,
+                            min_tokens = args.min_tokens,
+                            max_tokens = args.max_tokens,
                         )
+
                         # val_x_ids, val_y = generate_openwebtext_task_unified(
                         #     num_samples=args.batch_size,
                         #     ds=ds["validation"],
@@ -1184,22 +1203,22 @@ def main():
 
                         val_loss, val_preds = teacher_forcing_loss_emb_parallel(model, val_x_ids, val_y, criterion, return_predictions=True)
 
-                        if args.tokenizer == "hf":
-                            decode_fn = lambda ids: tokenizer.batch_decode(ids, skip_special_tokens=False, clean_up_tokenization_spaces=False)
+                        # if args.tokenizer == "hf":
+                        #     decode_fn = lambda ids: tokenizer.batch_decode(ids, skip_special_tokens=False, clean_up_tokenization_spaces=False)
 
-                        else:
-                            decode_fn = lambda ids: ["".join([id_to_char[i.item()] for i in seq if i.item() in id_to_char]) for seq in ids]
+                        # else:
+                        #     decode_fn = lambda ids: ["".join([id_to_char[i.item()] for i in seq if i.item() in id_to_char]) for seq in ids]
 
-                        decoded_preds = decode_fn(val_preds)
-                        decoded_targets = decode_fn(val_y)
-                        decoded_inputs = decode_fn(val_x_ids)
+                        # decoded_preds = decode_fn(val_preds)
+                        # decoded_targets = decode_fn(val_y)
+                        # decoded_inputs = decode_fn(val_x_ids)
 
-                        print("="*30)
-                        print("Validation predictions:")
-                        for jjj in range(min(len(decoded_preds), 5)):  # show up to 5 samples
-                            print(f"[Sample {jjj}] Input:    '{decoded_inputs[jjj]}'")
-                            print(f"[Sample {jjj}] Target:   '{decoded_targets[jjj]}'")
-                            print(f"[Sample {jjj}] Predicted:'{decoded_preds[jjj]}'")
+                        # print("="*30)
+                        # print("Validation predictions:")
+                        # for jjj in range(min(len(decoded_preds), 5)):  # show up to 5 samples
+                        #     print(f"[Sample {jjj}] Input:    '{decoded_inputs[jjj]}'")
+                        #     print(f"[Sample {jjj}] Target:   '{decoded_targets[jjj]}'")
+                        #     print(f"[Sample {jjj}] Predicted:'{decoded_preds[jjj]}'")
                         print("="*30)
 
                     #####################################################################################

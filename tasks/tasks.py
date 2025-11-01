@@ -649,6 +649,48 @@ def generate_openwebtext_task(
         return x_ids, y_ids, x_strings, y_strings
     return x_ids, y_ids
 
+def generate_copy_task(
+        num_samples: int,
+        vocab_size: int,
+        min_tokens: int  = 10,
+        max_tokens: int  = 128,
+        device: str = "cuda",
+        verbose: bool = False,
+):
+    """
+    Return a batch of (x_ids, y_ids) ready for language-model training.
+    Works with both HF and the simple CharTokenizer.
+
+    x = <bos> + tokens + <sep>
+    y = tokens + <eos>
+
+    Shapes: (num_samples, seq_len)  – padded on the right with pad-token-id.
+    """
+
+    pad = 0
+    bos = 1
+    sep = 2
+    eos = 3
+
+    # -------------------------------------------------------------------
+    x_batch, y_batch   = [], []
+
+    while len(x_batch) < num_samples:
+        num_tokens = np.random.randint(min_tokens, max_tokens)
+        tokens = np.random.randint(4, vocab_size, size=num_tokens)
+
+        x_tokens    = [bos] + tokens + [sep]
+        y_tokens    = tokens + [eos]
+
+        # save
+        x_batch.append(torch.tensor(x_tokens, device=device))
+        y_batch.append(torch.tensor(y_tokens, device=device))
+
+    # pad to max-len in batch
+    x_ids = torch.nn.utils.rnn.pad_sequence(x_batch, batch_first=True, padding_value=pad)
+    y_ids = torch.nn.utils.rnn.pad_sequence(y_batch, batch_first=True, padding_value=pad)
+
+    return x_ids, y_ids
 
 # def generate_openwebtext_task_unified(
 #     num_samples: int,
