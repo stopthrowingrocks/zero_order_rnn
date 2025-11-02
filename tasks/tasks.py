@@ -677,7 +677,7 @@ def generate_copy_task(
 
     while len(x_batch) < num_samples:
         num_tokens = np.random.randint(min_tokens, max_tokens)
-        tokens = np.random.randint(4, vocab_size, size=num_tokens)
+        tokens = np.random.randint(4, vocab_size - 1, size=num_tokens)
 
         x_tokens    = [bos] + tokens + [sep]
         y_tokens    = tokens + [eos]

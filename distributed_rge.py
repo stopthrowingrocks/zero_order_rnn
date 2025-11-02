@@ -96,9 +96,9 @@ def teacher_forcing_loss_emb_parallel(model, x_ids, y_ids_unpadded, criterion, c
         if x_emb == None:
             x_emb = model.embed(x_ids)
 
-        if x_emb.dtype != next(model.parameters()).dtype:
-            x_emb = x_emb.to(dtype=next(model.parameters()).dtype)
-
+        next_param = next(model.parameters())
+        if x_emb.dtype != next_param.dtype:
+            x_emb = x_emb.to(dtype=next_param.dtype)
         B, Lx, E = x_emb.shape
         Ly = y_ids_unpadded.shape[1]
 
@@ -111,16 +111,18 @@ def teacher_forcing_loss_emb_parallel(model, x_ids, y_ids_unpadded, criterion, c
 
         # Process input sequence first
         pos = 0
+        print("Starting stuff")
         while pos < Lx:
             chunk_end = min(pos + chunk_size, Lx)
             input_chunk = x_emb[:, pos:chunk_end, :]
-
+            print("Running model")
             out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory)
+            print("Done running model")
             hidden = hidden_new
             memory = mem_new
             pos = chunk_end
 
-
+        print("Part 2")
         # Now process target sequence chunk by chunk
         pos = 0
         while pos < Ly - 1:  # -1 because we don't embed the last target token
@@ -789,6 +791,7 @@ def main():
         vocab_size = 60 # + 4 for administrative tokens = 64 tokens total
         args.min_tokens = 10
         args.max_tokens = 128
+        criterion = nn.CrossEntropyLoss(ignore_index=0).to(device)
 
     # vocab_list, char_to_id, id_to_char = get_char_vocab()
     # vocab_size = len(vocab_list)
@@ -830,7 +833,8 @@ def main():
 
     # with torch.inference_mode():
     if args.model_type == "LSTM":
-        embed = nn.Embedding(args.vocab_size, args.input_size, device=device)
+        embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype = torch.bfloat16)
+        print(f"{args=} {device=}")
         model = LSTM(
             input_size  = args.input_size,
             output_size = args.vocab_size,
@@ -1278,6 +1282,97 @@ def main():
 
         dist.destroy_process_group()
 
+def test_task():
+    args = argparse.Namespace(local_rank=0, mode='test', max_iters=10000000000.0, learning_rate=0.1, beta1=0.0, beta2=0.0, epsilon_tying_ratio=1.0, weight_decay=0.0, probe_dropout_rate=0.0, wandb_proj=None, wandb_run='cent_test_lr0.1_scale1_pdrop0.0_h240_bs2048_seq10_seq10_b1_0.0_b2_0.0_coswav_100000000_wu0_mp12', warmup_iters=0, cosine_wavelength=100000000, val_iters=10, meta_perturbations=12, scatter_batch=False, model_scale=1, num_heads=12, memory_size=128, hidden_size=240, input_size=100, head_size=20, batch_size=2048, min_seq_len=10, max_seq_len=10, step_seq_len=10, step_seq_len_loss_thresh=0.0, patience_seq_len=100, tokenizer=None, probe_normalization='false', gradient_normalization='false', adaptive='false', adam='false', use_different_batch_per_meta_perturbation=False, normal_distribution='false', l1_norm='false', antithetic='false', central_difference=True, learn_rate_schedule=False, model_type='LSTM', load_from_checkpoint=None, verbose='false', min_tokens=10, max_tokens=128, vocab_size=60)
+
+    try:
+        torch.cuda.set_device(args.local_rank)
+    except RuntimeError as e:
+        print(f"Error metadata. Local rank: {args.local_rank}, CUDA Available: {torch.cuda.is_available()}, Device Count: {torch.cuda.device_count()}, GPU Name 0: {torch.cuda.get_device_name(0)}")
+        raise e
+
+    dist.init_process_group(backend="nccl")
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
+    device = torch.device(f"cuda:{args.local_rank}")
+
+    dist.barrier()
+    
+    x_ids, y_ids_unpadded = generate_copy_task(
+        num_samples = args.batch_size,
+        vocab_size = args.vocab_size,
+        min_tokens = args.min_tokens,
+        max_tokens = args.max_tokens,
+    )
+    criterion = nn.CrossEntropyLoss(ignore_index=0).to(device) # This line has been changed
+
+    dist.barrier()
+    
+    embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype = torch.bfloat16)
+    model = LSTM(
+        input_size  = args.input_size,
+        output_size = args.vocab_size,
+        hidden_size = args.hidden_size,
+        memory_size = args.memory_size,
+        head_size   = args.head_size,
+        num_heads   = args.num_heads,
+        embed       = embed,
+        device      = device,
+    )
+
+    chunk_size=32
+    x_emb=None
+    return_predictions=False
+    
+    if x_emb == None:
+        x_emb = model.embed(x_ids)
+
+    next_param = next(model.parameters())
+    if x_emb.dtype != next_param.dtype:
+        x_emb = x_emb.to(dtype=next_param.dtype)
+    B, Lx, E = x_emb.shape
+    Ly = y_ids_unpadded.shape[1]
+
+    if return_predictions:
+        all_preds = []
+    hidden = None
+    memory = None
+    total_loss = 0.0
+    total_predicted_tokens = 0
+
+    # Process input sequence first
+    pos = 0
+    print("Starting stuff")
+    while pos < Lx:
+        chunk_end = min(pos + chunk_size, Lx)
+        input_chunk = x_emb[:, pos:chunk_end, :]
+        print("Running model")
+        out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory)
+        print("Done running model")
+        return
+
+def test_einsum():
+    args = argparse.Namespace(local_rank=0, mode='test', max_iters=10000000000.0, learning_rate=0.1, beta1=0.0, beta2=0.0, epsilon_tying_ratio=1.0, weight_decay=0.0, probe_dropout_rate=0.0, wandb_proj=None, wandb_run='cent_test_lr0.1_scale1_pdrop0.0_h240_bs2048_seq10_seq10_b1_0.0_b2_0.0_coswav_100000000_wu0_mp12', warmup_iters=0, cosine_wavelength=100000000, val_iters=10, meta_perturbations=12, scatter_batch=False, model_scale=1, num_heads=12, memory_size=128, hidden_size=240, input_size=100, head_size=20, batch_size=2048, min_seq_len=10, max_seq_len=10, step_seq_len=10, step_seq_len_loss_thresh=0.0, patience_seq_len=100, tokenizer=None, probe_normalization='false', gradient_normalization='false', adaptive='false', adam='false', use_different_batch_per_meta_perturbation=False, normal_distribution='false', l1_norm='false', antithetic='false', central_difference=True, learn_rate_schedule=False, model_type='LSTM', load_from_checkpoint=None, verbose='false', min_tokens=10, max_tokens=128, vocab_size=60)
+
+    try:
+        torch.cuda.set_device(args.local_rank)
+    except RuntimeError as e:
+        print(f"Error metadata. Local rank: {args.local_rank}, CUDA Available: {torch.cuda.is_available()}, Device Count: {torch.cuda.device_count()}, GPU Name 0: {torch.cuda.get_device_name(0)}")
+        raise e
+
+    dist.init_process_group(backend="nccl")
+    rank = dist.get_rank()
+    world_size = dist.get_world_size()
+    device = torch.device(f"cuda:{args.local_rank}")
+
+    dist.barrier()
+    
+    print(f"test {device=}")
+    A = torch.zeros([2048, 32, 100], dtype=torch.bfloat16, device=device)
+    B = torch.zeros([100, 960], dtype=torch.bfloat16, device=device)
+    C = torch.einsum("bte,eg->btg", A, B)
 
 if __name__ == "__main__":
-    main()
+    # main()
+    # test_task()
+    test_einsum()
