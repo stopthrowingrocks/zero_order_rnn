@@ -102,8 +102,6 @@ def teacher_forcing_loss_emb_parallel(model, x_ids, y_ids_unpadded, criterion, c
         B, Lx, E = x_emb.shape
         Ly = y_ids_unpadded.shape[1]
 
-        if return_predictions:
-            all_preds = []
         hidden = None
         memory = None
         total_loss = 0.0
@@ -111,18 +109,18 @@ def teacher_forcing_loss_emb_parallel(model, x_ids, y_ids_unpadded, criterion, c
 
         # Process input sequence first
         pos = 0
-        print("Starting stuff")
+        # print("Starting stuff")
         while pos < Lx:
             chunk_end = min(pos + chunk_size, Lx)
             input_chunk = x_emb[:, pos:chunk_end, :]
-            print("Running model")
+            # print("Running model")
             out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory)
-            print("Done running model")
+            # print("Done running model")
             hidden = hidden_new
             memory = mem_new
             pos = chunk_end
 
-        print("Part 2")
+        # print("Part 2")
         # Now process target sequence chunk by chunk
         pos = 0
         while pos < Ly - 1:  # -1 because we don't embed the last target token
@@ -138,20 +136,23 @@ def teacher_forcing_loss_emb_parallel(model, x_ids, y_ids_unpadded, criterion, c
             memory = mem_new
 
             # Compute loss for this chunk
+            out_chunk_original = out_chunk
             out_chunk = out_chunk.reshape(-1, out_chunk.size(-1))
             targets = y_ids_unpadded[:, pos+1:chunk_end+1].reshape(-1)  # shift by 1 for next-token prediction
 
             if targets.size(0) > 0:  # ensure we have targets
                 chunk_loss = criterion(out_chunk.to(torch.float64), targets)
-                out_chunk = out_chunk.to(torch.float32)  # Optional: demote if reused below
-                chunk_loss = criterion(out_chunk, targets)
+                if np.random.randint(0, 1000) == 0:
+                    print(f"{x_ids.shape=} {y_ids_unpadded.shape=}")
+                    print(f"targets[0]:={y_ids_unpadded[0, pos+1:chunk_end+1]}")
+                    print(f"out_chunk[0]:={out_chunk_original[0,:,:]}")
+                    print(f"{out_chunk.shape=} {targets.shape=} {chunk_loss=}")
+                # out_chunk = out_chunk.to(torch.float32)  # Optional: demote if reused below
+                # chunk_loss = criterion(out_chunk, targets)
                 total_loss += chunk_loss * targets.size(0)
                 total_predicted_tokens += targets.size(0)
 
             pos = chunk_end
-            if return_predictions:
-                pred_chunk = torch.argmax(out_chunk, dim=-1).reshape(targets.shape).detach()
-                all_preds.append(pred_chunk)
 
 
 
@@ -163,11 +164,7 @@ def teacher_forcing_loss_emb_parallel(model, x_ids, y_ids_unpadded, criterion, c
         avg_loss = total_loss / total_predicted_tokens
         avg_loss = avg_loss.to(torch.float32)  # demote back
 
-        if return_predictions:
-            preds = torch.cat(all_preds, dim=-1).reshape(y_ids_unpadded.size(0), -1)
-            return avg_loss, preds
-        else:
-            return avg_loss
+        return avg_loss
 
     except torch.cuda.OutOfMemoryError as e:
         print(f"OOM in teacher_forcing_loss_emb: {str(e)}")
@@ -788,9 +785,17 @@ def main():
         vocab_size = len(tokenizer.vocab_list)
         criterion = nn.CrossEntropyLoss().to(device)
     else:
-        vocab_size = 60 # + 4 for administrative tokens = 64 tokens total
-        args.min_tokens = 10
-        args.max_tokens = 128
+        ### SETTINGS
+        vocab_size = 8 # - 4 administrative tokens = 20 possible copyable tokens
+        args.len_distribution = "uniform"
+        args.min_tokens = 4
+        args.max_tokens = 8
+        args.val_min_tokens = 10
+        args.val_max_tokens = 20
+        args.avg_tokens = 30
+        args.val_avg_tokens = 60
+        args.len_curvature = 3
+        args.val_len_curvature = 6
         criterion = nn.CrossEntropyLoss(ignore_index=0).to(device)
 
     # vocab_list, char_to_id, id_to_char = get_char_vocab()
@@ -955,7 +960,7 @@ def main():
 
     if rank == distributed_optimizer.clean_rank and args.wandb_proj is not None and wandb is not None:
         # wandb.init(project=args.wandb_proj, name=args.wandb_run)
-        wandb.init(project=args.wandb_proj,name=args.wandb_run)
+        wandb.init(entity="stopthrowingrocks-stanford-university", project=args.wandb_proj, name=args.wandb_run)
         wandb.config.update( vars(args) )
 
         print("[Rank 1] Initialized wandb logging.")
@@ -1018,21 +1023,26 @@ def main():
                         sampled_seq_len = random.randint(args.min_seq_len, current_max_seq_len)
 
 
-                        # x_ids_temp, y_temp = generate_openwebtext_task(
-                        #     num_samples     = args.batch_size,
-                        #     ds              = ds["train"],
-                        #     tokenizer       = tokenizer,
-                        #     min_tokens      = args.min_seq_len,
-                        #     max_tokens      = sampled_seq_len,
-                        #     device          = device
-                        # )
-
-                        x_ids_temp, y_temp = generate_copy_task(
-                            num_samples = args.batch_size,
-                            vocab_size = args.vocab_size,
-                            min_tokens = args.min_tokens,
-                            max_tokens = args.max_tokens,
-                        )
+                        if args.tokenizer == "hf":
+                            x_ids_temp, y_temp = generate_openwebtext_task(
+                                num_samples     = args.batch_size,
+                                ds              = ds["train"],
+                                tokenizer       = tokenizer,
+                                min_tokens      = args.min_seq_len,
+                                max_tokens      = sampled_seq_len,
+                                device          = device
+                            )
+                        else:
+                            x_ids_temp, y_temp = generate_copy_task(
+                                num_samples = args.batch_size,
+                                vocab_size = args.vocab_size,
+                                distribution = args.len_distribution,
+                                min_tokens = args.min_tokens,
+                                max_tokens = args.max_tokens,
+                                avg_tokens = args.avg_tokens,
+                                len_curvature = args.len_curvature,
+                            )
+                        # print(f"{x_ids_temp.shape=} {y_temp.shape=} {torch.min(x_ids_temp)=} {torch.max(x_ids_temp)=} {torch.min(y_temp)=} {torch.max(y_temp)=} {args.vocab_size=} {args.input_size=}")
 
                         # x_ids_temp, y_temp = generate_openwebtext_task_unified(
                         #     num_samples=args.batch_size,
@@ -1080,8 +1090,7 @@ def main():
             #####################################################################################
             # CHECKPOINT THE MODEL RARELY
             #####################################################################################
-            if args.mode == "train" and (i+1) % (args.val_iters) == 0:
-
+            if args.mode == "train" and i % (args.val_iters) == 0:
                 save_distributed_checkpoint(distributed_optimizer,
                                             args.wandb_run,
                                             "rnn_checkpoints",
@@ -1155,7 +1164,7 @@ def main():
                 #####################################################################################
                 # RUN VALIDATION
                 #####################################################################################
-                if rank == distributed_optimizer.clean_rank and (i+1) % args.val_iters == 0:
+                if rank == distributed_optimizer.clean_rank and i % args.val_iters == 0:
 
                     if args.mode == "train":
 
@@ -1175,37 +1184,28 @@ def main():
                         #     x_ids = str_to_tensor(x_strs, char_to_id).to(device)
                         #     y = str_to_tensor(y_strs, char_to_id).to(device)
 
-                        # val_x_ids, val_y  = generate_openwebtext_task(
-                        #     num_samples     = args.batch_size,
-                        #     ds              = ds["validation"],
-                        #     tokenizer       = tokenizer,
-                        #     min_tokens      = args.min_seq_len,
-                        #     max_tokens      = sampled_seq_len,
-                        #     device          = device
-                        # )
-
-                        val_x_ids, val_y = generate_copy_task(
-                            num_samples = args.batch_size,
-                            vocab_size = args.vocab_size,
-                            min_tokens = args.min_tokens,
-                            max_tokens = args.max_tokens,
-                        )
-
-                        # val_x_ids, val_y = generate_openwebtext_task_unified(
-                        #     num_samples=args.batch_size,
-                        #     ds=ds["validation"],
-                        #     tokenizer=hf_tokenizer if args.tokenizer == "hf" else None,
-                        #     min_tokens=args.min_seq_len,
-                        #     max_tokens=sampled_seq_len,
-                        #     char_tokenizer=(args.tokenizer != "hf"),
-                        #     char_to_id=char_to_id,
-                        #     str_to_tensor=str_to_tensor,
-                        #     return_strings=False,
-                        #     device=device
-                        # )
+                        if args.tokenizer == "hf":
+                            val_x_ids, val_y  = generate_openwebtext_task(
+                                num_samples     = args.batch_size,
+                                ds              = ds["validation"],
+                                tokenizer       = tokenizer,
+                                min_tokens      = args.min_seq_len,
+                                max_tokens      = sampled_seq_len,
+                                device          = device
+                            )
+                        else:
+                            val_x_ids, val_y = generate_copy_task(
+                                num_samples = args.batch_size,
+                                vocab_size = args.vocab_size,
+                                distribution = args.len_distribution,
+                                min_tokens = args.val_min_tokens,
+                                max_tokens = args.val_max_tokens,
+                                avg_tokens = args.val_avg_tokens,
+                                len_curvature = args.val_len_curvature,
+                            )
 
 
-                        val_loss, val_preds = teacher_forcing_loss_emb_parallel(model, val_x_ids, val_y, criterion, return_predictions=True)
+                        val_loss = teacher_forcing_loss_emb_parallel(model, val_x_ids, val_y, criterion, return_predictions=True)
 
                         # if args.tokenizer == "hf":
                         #     decode_fn = lambda ids: tokenizer.batch_decode(ids, skip_special_tokens=False, clean_up_tokenization_spaces=False)
@@ -1223,7 +1223,7 @@ def main():
                         #     print(f"[Sample {jjj}] Input:    '{decoded_inputs[jjj]}'")
                         #     print(f"[Sample {jjj}] Target:   '{decoded_targets[jjj]}'")
                         #     print(f"[Sample {jjj}] Predicted:'{decoded_preds[jjj]}'")
-                        print("="*30)
+                        # print("="*30)
 
                     #####################################################################################
                     # log to wandb every val_iters iterations.
@@ -1256,10 +1256,11 @@ def main():
                 #####################################################################################
                 # Log to stdout
                 #####################################################################################
-                print("="*50)
-                average_time_per_iter = (datetime.datetime.now() - start_time)
-                start_time = datetime.datetime.now()
-                print(f"[Train] Iteration {i }, train_loss = {train_loss}, loss_ema_fast = {loss_ema_fast}, loss_ema_slow = {loss_ema_slow}, lr = {distributed_optimizer.learning_rate}, val_loss = {val_loss}, current_max_seq_len = {current_max_seq_len} time per step (TOTAL) = { average_time_per_iter }")
+                if i % args.val_iters == 0:
+                    print("="*50)
+                    average_time_per_iter = (datetime.datetime.now() - start_time) / args.val_iters
+                    start_time = datetime.datetime.now()
+                    print(f"[Train] Iteration {i }, train_loss = {train_loss}, loss_ema_fast = {loss_ema_fast}, loss_ema_slow = {loss_ema_slow}, lr = {distributed_optimizer.learning_rate}, val_loss = {val_loss}, current_max_seq_len = {current_max_seq_len} time per step (TOTAL) = { average_time_per_iter }")
 
 
             dist.barrier()
@@ -1282,7 +1283,8 @@ def main():
 
         dist.destroy_process_group()
 
-def test_task():
+def test_task(do_embed):
+    print(f"{do_embed=}")
     args = argparse.Namespace(local_rank=0, mode='test', max_iters=10000000000.0, learning_rate=0.1, beta1=0.0, beta2=0.0, epsilon_tying_ratio=1.0, weight_decay=0.0, probe_dropout_rate=0.0, wandb_proj=None, wandb_run='cent_test_lr0.1_scale1_pdrop0.0_h240_bs2048_seq10_seq10_b1_0.0_b2_0.0_coswav_100000000_wu0_mp12', warmup_iters=0, cosine_wavelength=100000000, val_iters=10, meta_perturbations=12, scatter_batch=False, model_scale=1, num_heads=12, memory_size=128, hidden_size=240, input_size=100, head_size=20, batch_size=2048, min_seq_len=10, max_seq_len=10, step_seq_len=10, step_seq_len_loss_thresh=0.0, patience_seq_len=100, tokenizer=None, probe_normalization='false', gradient_normalization='false', adaptive='false', adam='false', use_different_batch_per_meta_perturbation=False, normal_distribution='false', l1_norm='false', antithetic='false', central_difference=True, learn_rate_schedule=False, model_type='LSTM', load_from_checkpoint=None, verbose='false', min_tokens=10, max_tokens=128, vocab_size=60)
 
     try:
@@ -1301,8 +1303,11 @@ def test_task():
     x_ids, y_ids_unpadded = generate_copy_task(
         num_samples = args.batch_size,
         vocab_size = args.vocab_size,
+        distribution = args.len_distribution,
         min_tokens = args.min_tokens,
         max_tokens = args.max_tokens,
+        avg_tokens = args.avg_tokens,
+        len_curvature = args.len_curvature,
     )
     criterion = nn.CrossEntropyLoss(ignore_index=0).to(device) # This line has been changed
 
@@ -1320,36 +1325,20 @@ def test_task():
         device      = device,
     )
 
-    chunk_size=32
-    x_emb=None
-    return_predictions=False
-    
-    if x_emb == None:
-        x_emb = model.embed(x_ids)
+    if do_embed:
+        # This line in particular causes problems ...
+        model.embed(x_ids)
 
-    next_param = next(model.parameters())
-    if x_emb.dtype != next_param.dtype:
-        x_emb = x_emb.to(dtype=next_param.dtype)
-    B, Lx, E = x_emb.shape
-    Ly = y_ids_unpadded.shape[1]
-
-    if return_predictions:
-        all_preds = []
-    hidden = None
-    memory = None
-    total_loss = 0.0
-    total_predicted_tokens = 0
-
-    # Process input sequence first
-    pos = 0
-    print("Starting stuff")
-    while pos < Lx:
-        chunk_end = min(pos + chunk_size, Lx)
-        input_chunk = x_emb[:, pos:chunk_end, :]
-        print("Running model")
-        out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory)
-        print("Done running model")
-        return
+    # # Process input sequence first
+    # print("Running model")
+    # with torch.no_grad():
+    #     print(f"test {device=}")
+    #     A = torch.zeros([2048, 32, 100], dtype=torch.bfloat16, device=device)
+    #     B = torch.zeros([100, 960], dtype=torch.bfloat16, device=device)
+    #     # But an error occurs on this line.
+    #     C = torch.einsum("bte,eg->btg", A, B)
+    # print("Done running model")
+    dist.destroy_process_group()
 
 def test_einsum():
     args = argparse.Namespace(local_rank=0, mode='test', max_iters=10000000000.0, learning_rate=0.1, beta1=0.0, beta2=0.0, epsilon_tying_ratio=1.0, weight_decay=0.0, probe_dropout_rate=0.0, wandb_proj=None, wandb_run='cent_test_lr0.1_scale1_pdrop0.0_h240_bs2048_seq10_seq10_b1_0.0_b2_0.0_coswav_100000000_wu0_mp12', warmup_iters=0, cosine_wavelength=100000000, val_iters=10, meta_perturbations=12, scatter_batch=False, model_scale=1, num_heads=12, memory_size=128, hidden_size=240, input_size=100, head_size=20, batch_size=2048, min_seq_len=10, max_seq_len=10, step_seq_len=10, step_seq_len_loss_thresh=0.0, patience_seq_len=100, tokenizer=None, probe_normalization='false', gradient_normalization='false', adaptive='false', adam='false', use_different_batch_per_meta_perturbation=False, normal_distribution='false', l1_norm='false', antithetic='false', central_difference=True, learn_rate_schedule=False, model_type='LSTM', load_from_checkpoint=None, verbose='false', min_tokens=10, max_tokens=128, vocab_size=60)
@@ -1371,8 +1360,9 @@ def test_einsum():
     A = torch.zeros([2048, 32, 100], dtype=torch.bfloat16, device=device)
     B = torch.zeros([100, 960], dtype=torch.bfloat16, device=device)
     C = torch.einsum("bte,eg->btg", A, B)
+    dist.destroy_process_group()
 
 if __name__ == "__main__":
-    # main()
-    # test_task()
-    test_einsum()
+    main()
+    # test_task(True)
+    # test_einsum()

@@ -128,7 +128,7 @@ class LSTM(nn.Module):
         hidden  : (hN, cN)
         """
         
-        print("LSTM forward")
+        # print("LSTM forward")
         with (torch.no_grad() if not require_gradients else contextlib.nullcontext()):
             B, T, E = x_emb.shape
             dtype   = x_emb.dtype
@@ -136,20 +136,20 @@ class LSTM(nn.Module):
     
             # ---------------- FlashRNN fast path --------------------- #
             if FLASH_OK and dev.type == "cuda":
-                print("w/flash")
-                print(f"{x_emb.shape=} {x_emb.dtype=} {self.W_in.shape=} {self.W_in.dtype=}")
+                # print("w/flash")
+                # print(f"{x_emb.shape=} {x_emb.dtype=} {self.W_in.shape=} {self.W_in.dtype=}")
                 
                 # ---- 1. project input to gate dimensions (Wx) ---- #
                 _dev = torch.device(f"cuda:0")
     
-                print(f"test {_dev=}")
-                A = torch.zeros([2048, 32, 100], dtype=torch.bfloat16, device=_dev)
-                B = torch.zeros([100, 960], dtype=torch.bfloat16, device=_dev)
-                C = torch.einsum("bte,eg->btg", A, B)
-                print("test 2")
-                D = torch.einsum("bte,eg->btg", x_emb, B)   # [B,T,G*N*D]
+                # print(f"test {_dev=}")
+                # A = torch.zeros([2048, 32, 100], dtype=torch.bfloat16, device=_dev)
+                # B = torch.zeros([100, 960], dtype=torch.bfloat16, device=_dev)
+                # C = torch.einsum("bte,eg->btg", A, B)
+                # print("test 2")
+                # D = torch.einsum("bte,eg->btg", x_emb, B)   # [B,T,G*N*D]
 
-                print("the real thing")
+                # print("the real thing")
                 Wx = torch.einsum("bte,eg->btg", x_emb, self.W_in)   # [B,T,G*N*D]
                 # zeros_x_emb = torch.zeros([2048, 32, 100])
                 # print(f"{zeros_x_emb.shape=} {self.W_in.shape=}")
@@ -157,7 +157,7 @@ class LSTM(nn.Module):
                 # B = torch.zeros([100, 960])
                 # C = torch.einsum("bte,eg->btg", A, B)
                 # Wx = torch.einsum("bte,eg->btg", zeros_x_emb, self.W_in)   # [B,T,G*N*D]
-                print("einsum complete")
+                # print("einsum complete")
                 Wx = Wx.view(B, T, self.G, self.N, self.D).contiguous()
     
                 # ---- 2. initial states ---- #
@@ -190,7 +190,7 @@ class LSTM(nn.Module):
                 hN = h_flat[:, -1, :].unsqueeze(0)          # [1,B,H]
                 cN = states[1].reshape(B, T, self.N * self.D)[:, -1, :].unsqueeze(0)
 
-                print("LSTM forward complete w/flash")
+                # print("LSTM forward complete w/flash")
                 return logits, None, (hN.to(dtype), cN.to(dtype))
     
             # ---------------- fallback path (CPU or missing flashrnn)------ #

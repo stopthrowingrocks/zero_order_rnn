@@ -642,6 +642,7 @@ def generate_openwebtext_task(
             y_strings.append(decode(y_tokens))
 
     # 6) pad to max-len in batch
+    print(f"{bos=} {eos=} {pad=}")
     x_ids = torch.nn.utils.rnn.pad_sequence(x_batch, batch_first=True, padding_value=pad)
     y_ids = torch.nn.utils.rnn.pad_sequence(y_batch, batch_first=True, padding_value=pad)
 
@@ -652,9 +653,12 @@ def generate_openwebtext_task(
 def generate_copy_task(
         num_samples: int,
         vocab_size: int,
-        min_tokens: int  = 10,
-        max_tokens: int  = 128,
+        distribution: str,
         device: str = "cuda",
+        min_tokens: int = 10,
+        max_tokens: int = 20,
+        avg_tokens: float  = 30,
+        len_curvature: int  = 3,
         verbose: bool = False,
 ):
     """
@@ -667,28 +671,35 @@ def generate_copy_task(
     Shapes: (num_samples, seq_len)  – padded on the right with pad-token-id.
     """
 
-    pad = 0
-    bos = 1
-    sep = 2
-    eos = 3
+    pad = vocab_size - 1
+    bos = vocab_size - 3
+    sep = vocab_size - 4
+    eos = vocab_size - 2
+
+    # print(f"generate_copy_task {bos=} {eos=} {pad=}")
 
     # -------------------------------------------------------------------
     x_batch, y_batch   = [], []
 
     while len(x_batch) < num_samples:
-        num_tokens = np.random.randint(min_tokens, max_tokens)
-        tokens = np.random.randint(4, vocab_size - 1, size=num_tokens)
+        if distribution == "negative_binomial":
+            num_tokens = np.random.negative_binomial(len_curvature, len_curvature / avg_tokens)
+        else:
+            num_tokens = np.random.randint(min_tokens, max_tokens)
+        tokens = list(np.random.randint(0, vocab_size - 4, size=num_tokens))
 
-        x_tokens    = [bos] + tokens + [sep]
-        y_tokens    = tokens + [eos]
+        x_tokens    = [bos] + tokens
+        y_tokens    = [sep] + tokens + [eos]
 
         # save
         x_batch.append(torch.tensor(x_tokens, device=device))
         y_batch.append(torch.tensor(y_tokens, device=device))
+        # print(f"{tokens=} {x_tokens=} {y_tokens=} {x_batch=} {y_batch=}")
 
     # pad to max-len in batch
     x_ids = torch.nn.utils.rnn.pad_sequence(x_batch, batch_first=True, padding_value=pad)
     y_ids = torch.nn.utils.rnn.pad_sequence(y_batch, batch_first=True, padding_value=pad)
+    # print(f"{x_ids=} {y_ids=}")
 
     return x_ids, y_ids
 
