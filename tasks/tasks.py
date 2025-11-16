@@ -420,18 +420,17 @@ def compute_task_loss(logits, ids_np, tok, task, verbose=False):
               print(f"  Input: '{input_text}'")
               print(f"  Target: '{target_text}'")
 
-          # The crucial correction: 
-          # For each position i, use logits at position pos+1+i to predict token at position i+1
+          # For seq2seq tasks (reverse, copy, sort), we predict the current output token
+          # at each position, not the next token like in language modeling
           pred_logits = []
           tgt_tokens = []
 
-          # For each position except the last one in output_part
-          for i in range(len(output_part) - 1):
-              # Only include if it's a content token or space following content
-              if (i in content_indices) or (i-1 in content_indices and output_part[i] == space_id):
-                  if pos + 1 + i < T:  # Ensure we're within logits sequence length
-                      pred_logits.append(logits[b, pos + 1 + i])
-                      tgt_tokens.append(output_part[i + 1])  # Predict NEXT token
+          # For each content position in the output
+          for i in content_indices:
+              # Use logits at position pos+1+i to predict output_part[i] (the current output token)
+              if pos + 1 + i < T:  # Ensure we're within logits sequence length
+                  pred_logits.append(logits[b, pos + 1 + i])
+                  tgt_tokens.append(output_part[i])  # Predict current token, not next
 
           # Skip if we have no valid targets
           if not tgt_tokens:
