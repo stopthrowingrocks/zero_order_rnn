@@ -98,8 +98,8 @@ def zeroth_order_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon
 
 def train_until_convergence(vocab_size, min_seq, max_seq, hidden_size, num_heads,
                              learning_rate, epsilon, num_perturbations, batch_size,
-                             max_steps, convergence_loss, device, seed):
-    """Train SPSA until convergence or max_steps."""
+                             max_time, convergence_loss, device, seed):
+    """Train SPSA until convergence or max_time (in seconds)."""
     torch.manual_seed(seed)
     np.random.seed(seed)
 
@@ -124,24 +124,24 @@ def train_until_convergence(vocab_size, min_seq, max_seq, hidden_size, num_heads
     step = 0
     losses = []
 
-    for step in range(max_steps):
+    while time.time() - start_time < max_time:
         x_ids, y_ids = generate_reverse_batch(batch_size, min_seq, max_seq, vocab_size, device)
         loss = zeroth_order_step(
             model, embed, x_ids, y_ids, PAD,
             learning_rate, epsilon, num_perturbations
         )
         losses.append(loss)
+        step += 1
 
         if loss < convergence_loss:
             converged = True
-            step += 1
             break
 
     elapsed = time.time() - start_time
 
     return {
         'converged': converged,
-        'steps': step if converged else max_steps,
+        'steps': step,
         'time': elapsed,
         'final_loss': losses[-1] if losses else float('inf'),
         'losses': losses
@@ -149,7 +149,7 @@ def train_until_convergence(vocab_size, min_seq, max_seq, hidden_size, num_heads
 
 
 def sweep_learning_rate(vocab_size, min_seq, max_seq, hidden_size, num_heads,
-                         epsilon, num_perturbations, batch_size, max_steps,
+                         epsilon, num_perturbations, batch_size, max_time,
                          convergence_loss, device, seed):
     """Sweep learning_rate values."""
     # Learning rates to test (matching epsilon constraint: lr = epsilon)
@@ -167,7 +167,7 @@ def sweep_learning_rate(vocab_size, min_seq, max_seq, hidden_size, num_heads,
         result = train_until_convergence(
             vocab_size, min_seq, max_seq, hidden_size, num_heads,
             lr, epsilon, num_perturbations, batch_size,
-            max_steps, convergence_loss, device, seed
+            max_time, convergence_loss, device, seed
         )
 
         result['lr'] = lr
@@ -176,13 +176,13 @@ def sweep_learning_rate(vocab_size, min_seq, max_seq, hidden_size, num_heads,
         if result['converged']:
             print(f"Converged in {result['steps']} steps ({result['time']:.2f}s)")
         else:
-            print(f"Did not converge (final loss: {result['final_loss']:.4f})")
+            print(f"Did not converge (final loss: {result['final_loss']:.4f}, steps: {result['steps']})")
 
     return results
 
 
 def sweep_perturbations(vocab_size, min_seq, max_seq, hidden_size, num_heads,
-                        learning_rate, epsilon, batch_size, max_steps,
+                        learning_rate, epsilon, batch_size, max_time,
                         convergence_loss, device, seed):
     """Sweep num_perturbations values."""
     pert_values = [1, 2, 4, 8, 16, 32, 64, 128]
@@ -199,7 +199,7 @@ def sweep_perturbations(vocab_size, min_seq, max_seq, hidden_size, num_heads,
         result = train_until_convergence(
             vocab_size, min_seq, max_seq, hidden_size, num_heads,
             learning_rate, epsilon, pert, batch_size,
-            max_steps, convergence_loss, device, seed
+            max_time, convergence_loss, device, seed
         )
 
         result['pert'] = pert
@@ -208,13 +208,13 @@ def sweep_perturbations(vocab_size, min_seq, max_seq, hidden_size, num_heads,
         if result['converged']:
             print(f"Converged in {result['steps']} steps ({result['time']:.2f}s)")
         else:
-            print(f"Did not converge (final loss: {result['final_loss']:.4f})")
+            print(f"Did not converge (final loss: {result['final_loss']:.4f}, steps: {result['steps']})")
 
     return results
 
 
 def sweep_batch_size(vocab_size, min_seq, max_seq, hidden_size, num_heads,
-                     learning_rate, epsilon, num_perturbations, max_steps,
+                     learning_rate, epsilon, num_perturbations, max_time,
                      convergence_loss, device, seed):
     """Sweep batch_size values."""
     batch_values = [4, 8, 16, 32, 64, 128, 256, 512]
@@ -231,7 +231,7 @@ def sweep_batch_size(vocab_size, min_seq, max_seq, hidden_size, num_heads,
         result = train_until_convergence(
             vocab_size, min_seq, max_seq, hidden_size, num_heads,
             learning_rate, epsilon, num_perturbations, batch,
-            max_steps, convergence_loss, device, seed
+            max_time, convergence_loss, device, seed
         )
 
         result['batch'] = batch
@@ -240,7 +240,7 @@ def sweep_batch_size(vocab_size, min_seq, max_seq, hidden_size, num_heads,
         if result['converged']:
             print(f"Converged in {result['steps']} steps ({result['time']:.2f}s)")
         else:
-            print(f"Did not converge (final loss: {result['final_loss']:.4f})")
+            print(f"Did not converge (final loss: {result['final_loss']:.4f}, steps: {result['steps']})")
 
     return results
 
@@ -335,7 +335,7 @@ def main():
     max_seq_length = 100
     hidden_size = 128
     num_heads = 4
-    max_steps = 5000
+    max_time = 30.0  # seconds per experiment
     convergence_loss = 0.05
     device = 'cuda'
     seed = 42
@@ -349,18 +349,18 @@ def main():
     output_dir = 'hpp-opt'
 
     print("="*80)
-    print("SPSA HYPERPARAMETER DIRECTIONAL SWEEPS")
+    print("SPSA HYPERPARAMETER DIRECTIONAL SWEEPS (Time-Based)")
     print("="*80)
     print(f"Task: Reverse sequences of length {min_seq_length}-{max_seq_length}")
     print(f"Vocab size: {vocab_size}, Hidden size: {hidden_size}")
-    print(f"Max steps: {max_steps}, Convergence criterion: loss < {convergence_loss}")
+    print(f"Max time per experiment: {max_time}s, Convergence criterion: loss < {convergence_loss}")
     print(f"Baseline: LR={baseline_lr}, Epsilon={baseline_epsilon}, Pert={baseline_pert}, Batch={baseline_batch}")
     print("="*80)
 
     # Sweep 1: Learning Rate (epsilon = lr)
     lr_results = sweep_learning_rate(
         vocab_size, min_seq_length, max_seq_length, hidden_size, num_heads,
-        baseline_epsilon, baseline_pert, baseline_batch, max_steps,
+        baseline_epsilon, baseline_pert, baseline_batch, max_time,
         convergence_loss, device, seed
     )
     plot_sweep_results(
@@ -372,7 +372,7 @@ def main():
     # Sweep 2: Perturbations
     pert_results = sweep_perturbations(
         vocab_size, min_seq_length, max_seq_length, hidden_size, num_heads,
-        baseline_lr, baseline_epsilon, baseline_batch, max_steps,
+        baseline_lr, baseline_epsilon, baseline_batch, max_time,
         convergence_loss, device, seed
     )
     plot_sweep_results(
@@ -384,7 +384,7 @@ def main():
     # Sweep 3: Batch Size
     batch_results = sweep_batch_size(
         vocab_size, min_seq_length, max_seq_length, hidden_size, num_heads,
-        baseline_lr, baseline_epsilon, baseline_pert, max_steps,
+        baseline_lr, baseline_epsilon, baseline_pert, max_time,
         convergence_loss, device, seed
     )
     plot_sweep_results(
