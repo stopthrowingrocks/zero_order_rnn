@@ -40,7 +40,9 @@ def send_photo(photo_path, caption=None):
             files = {'photo': photo}
             data = {'chat_id': CHAT_ID}
             if caption:
-                data['caption'] = caption
+                # Escape markdown special characters in caption
+                caption_escaped = caption.replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').replace('`', '\\`')
+                data['caption'] = caption_escaped
                 data['parse_mode'] = 'Markdown'
 
             response = requests.post(url, files=files, data=data, timeout=30)
@@ -65,7 +67,9 @@ def send_document(file_path, caption=None):
             files = {'document': doc}
             data = {'chat_id': CHAT_ID}
             if caption:
-                data['caption'] = caption
+                # Escape markdown special characters in caption
+                caption_escaped = caption.replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').replace('`', '\\`')
+                data['caption'] = caption_escaped
                 data['parse_mode'] = 'Markdown'
 
             response = requests.post(url, files=files, data=data, timeout=60)
