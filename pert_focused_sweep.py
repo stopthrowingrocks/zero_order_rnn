@@ -258,20 +258,22 @@ def main():
     ax.set_title('Time to Convergence (Converged Runs Only)', fontsize=11)
     ax.grid(True, alpha=0.3)
 
-    # Plot 3: Loss vs Time curves for converged runs
+    # Plot 3: Loss vs Time curves for ALL runs (converged and non-converged)
     ax = axes[1, 0]
     for r in results:
-        if r['converged'] and len(r['timestamps']) > 0:
-            ax.plot(r['timestamps'], r['losses'], alpha=0.6, linewidth=1.5,
-                   label=f"Pert={r['pert']}")
+        if len(r['timestamps']) > 0:
+            color = 'green' if r['converged'] else 'red'
+            linestyle = '-' if r['converged'] else '--'
+            ax.plot(r['timestamps'], r['losses'], color=color, alpha=0.5, linewidth=1.5,
+                   linestyle=linestyle, label=f"Pert={r['pert']}")
     ax.axhline(y=convergence_loss, color='blue', linestyle='--', linewidth=2,
               label=f'Convergence threshold ({convergence_loss})')
     ax.set_xlabel('Time (s)', fontsize=10)
     ax.set_ylabel('Loss', fontsize=10)
-    ax.set_title('Loss vs Time (Converged Runs)', fontsize=11)
+    ax.set_title('Loss vs Time (All Runs: Green=Converged, Red=Failed)', fontsize=11)
     ax.set_yscale('log')
     ax.grid(True, alpha=0.3)
-    if len([r for r in results if r['converged']]) <= 10:
+    if len(results) <= 10:
         ax.legend(fontsize=8, loc='best')
 
     # Plot 4: Final loss (all runs)
