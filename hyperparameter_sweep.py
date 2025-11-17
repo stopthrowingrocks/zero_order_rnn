@@ -11,6 +11,15 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from models.models import LSTM
 
+# Import telegram notifications (will fail silently if not available)
+try:
+    from telegram_notify import send_message, send_photo
+    TELEGRAM_AVAILABLE = True
+except ImportError:
+    TELEGRAM_AVAILABLE = False
+    def send_message(msg): pass
+    def send_photo(path, caption=None): pass
+
 
 def generate_reverse_batch(batch_size, min_seq_length, max_seq_length, vocab_size, device='cuda'):
     """Generate a batch of reverse sequences with variable lengths."""
@@ -397,6 +406,33 @@ def main():
     print("ALL SWEEPS COMPLETE")
     print("="*80)
     print(f"Plots saved to {output_dir}/")
+
+    # Send Telegram notification
+    if TELEGRAM_AVAILABLE:
+        # Count converged runs
+        lr_converged = sum(1 for r in lr_results if r['converged'])
+        pert_converged = sum(1 for r in pert_results if r['converged'])
+        batch_converged = sum(1 for r in batch_results if r['converged'])
+
+        # Send summary message
+        message = f"""**SPSA Hyperparameter Sweeps Complete!**
+
+Task: Reverse (seq={min_seq_length}-{max_seq_length}, vocab={vocab_size})
+
+**Results:**
+- Learning Rate: {lr_converged}/8 converged
+- Perturbations: {pert_converged}/8 converged
+- Batch Size: {batch_converged}/8 converged
+
+Plots saved to {output_dir}/"""
+
+        send_message(message)
+
+        # Send plots
+        import glob
+        plots = glob.glob(f"{output_dir}/*.png")
+        for plot in plots:
+            send_photo(plot, caption=os.path.basename(plot))
 
 
 if __name__ == '__main__':
