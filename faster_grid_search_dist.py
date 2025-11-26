@@ -133,7 +133,7 @@ def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, eps
 def train_with_early_stop_distributed(batch_size, num_gpus, learning_rate, vocab_size,
                                         min_tokens, max_tokens, max_time, convergence_loss,
                                         rank, world_size, device, seed,
-                                        hidden_size=128, num_heads=4):
+                                        hidden_size=240, num_heads=12, input_size=100):
     """
     Distributed training with early stopping.
     IMPORTANT: epsilon is always set equal to learning_rate.
@@ -146,9 +146,9 @@ def train_with_early_stop_distributed(batch_size, num_gpus, learning_rate, vocab
 
     PAD = vocab_size - 1
 
-    embed = nn.Embedding(vocab_size, hidden_size, device=device, dtype=torch.bfloat16)
+    embed = nn.Embedding(vocab_size, input_size, device=device, dtype=torch.bfloat16)
     model = LSTM(
-        input_size=hidden_size,
+        input_size=input_size,
         output_size=vocab_size,
         hidden_size=hidden_size,
         memory_size=0,
@@ -241,7 +241,7 @@ def append_to_csv(filename, row_dict):
 
 def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, vocab_size,
                                         min_tokens, num_gpus, rank, world_size, device, base_seed,
-                                        hidden_size=128, num_heads=4):
+                                        hidden_size=240, num_heads=12, input_size=100):
     """
     Adaptive LR search for a specific max_tokens value (distributed version).
     Only rank 0 does I/O and logging.
@@ -312,7 +312,8 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
                 device=device,
                 seed=seed,
                 hidden_size=hidden_size,
-                num_heads=num_heads
+                num_heads=num_heads,
+                input_size=input_size
             )
 
             if rank == 0:
@@ -426,8 +427,9 @@ def main():
     # Test all max_tokens values
     max_tokens_values = 10 ** np.arange(1, 3 + 0.2, 0.2)  # 10^1 to 10^3
 
-    hidden_size = 128
-    num_heads = 4
+    hidden_size = 240
+    num_heads = 12
+    input_size = 100
     base_seed = 42
 
     if rank == 0:
@@ -458,7 +460,8 @@ def main():
             device=device,
             base_seed=base_seed + mt_idx * 1000,
             hidden_size=hidden_size,
-            num_heads=num_heads
+            num_heads=num_heads,
+            input_size=input_size
         )
 
         if rank == 0:
