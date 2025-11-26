@@ -155,7 +155,7 @@ def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, eps
 def train_with_early_stop_distributed(batch_size, num_gpus, learning_rate, vocab_size,
                                         min_tokens, max_tokens, max_time, convergence_loss,
                                         rank, world_size, device, seed,
-                                        hidden_size=240, num_heads=12, input_size=100):
+                                        hidden_size=240, num_heads=12):
     """
     Distributed training with early stopping.
     IMPORTANT: epsilon is always set equal to learning_rate.
@@ -168,9 +168,9 @@ def train_with_early_stop_distributed(batch_size, num_gpus, learning_rate, vocab
 
     PAD = vocab_size - 1
 
-    embed = nn.Embedding(vocab_size, input_size, device=device, dtype=torch.bfloat16)
+    embed = nn.Embedding(vocab_size, hidden_size, device=device, dtype=torch.bfloat16)
     model = LSTM(
-        input_size=input_size,
+        input_size=hidden_size,
         output_size=vocab_size,
         hidden_size=hidden_size,
         memory_size=0,
