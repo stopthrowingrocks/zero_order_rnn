@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh root@69.30.85.75 -p 22073 -i ~/.ssh/id_ed25519:*)",
+      "Bash(cat:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd comprehensive Adam vs SPSA optimizer comparison\n\nTests both optimizers with variable sequence lengths (5-10 tokens):\n- Adam: 6 hyperparameter configurations\n- SPSA: 8 hyperparameter configurations\n\nFinds optimal settings for each optimizer on the reverse task.\n\nGenerated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd convergence speed comparison script for Adam vs SPSA\n\nImplements two-phase experiment:\n- Phase 1: Hyperparameter tuning with single seed (loss < 0.05 criterion)\n- Phase 2: Statistical validation with multiple seeds\n\nEnforces LR = epsilon for SPSA per theory.\nTracks steps and wall-clock time to convergence.\n\nGenerated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(powershell -Command \"New-BurntToastNotification -Text ''Test Notification from Claude'', ''This is a test to see if notifications work!''\")",
+      "Bash(powershell:*)",
+      "Bash(ssh root@69.30.85.30 -p 22052 -i ~/.ssh/id_ed25519 \"cd /workspace/zero_order_rnn && python -c ''try:\n    import flashrnn\n    print(\"\"FlashRNN is installed:\"\", flashrnn.__version__)\nexcept ImportError:\n    print(\"\"FlashRNN not installed\"\")''\")",
+      "Bash(ssh root@69.30.85.30 -p 22052 -i ~/.ssh/id_ed25519 \"cd /workspace/zero_order_rnn && python -c ''import flashrnn; print(dir(flashrnn)); print(\"\"FlashRNN available:\"\", hasattr(flashrnn, \"\"LSTM\"\"))''\")",
+      "Bash(ssh root@69.30.85.30 -p 22052 -i ~/.ssh/id_ed25519 \"cd /workspace/zero_order_rnn && python -c ''from flashrnn.flashrnn import LSTM; print(\"\"FlashRNN LSTM imported successfully:\"\", LSTM)''\")",
+      "Bash(ssh root@69.30.85.30 -p 22052 -i ~/.ssh/id_ed25519 \"cd /workspace/zero_order_rnn && python -c ''import flashrnn.flashrnn as frnn; print(dir(frnn))''\")",
+      "Bash(ssh root@69.30.85.30 -p 22052 -i ~/.ssh/id_ed25519 \"cd /workspace/zero_order_rnn && head -50 models/models.py | grep -A 10 ''import''\")",
+      "Bash(ssh:*)",
+      "Bash(git commit:*)",
+      "Bash(scp:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

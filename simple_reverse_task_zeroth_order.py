@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Simplified LSTM reverse task - NO TOKENIZATION
-Works directly with integer sequences.
+Simplified LSTM reverse task with ZERO-ORDER OPTIMIZATION (Gradient-Free)
+Uses random perturbations instead of backpropagation.
 
 Example usage:
-    python simple_reverse_task.py --vocab_size 20 --seq_length 10 --batch_size 32
+    python simple_reverse_task_zeroth_order.py --vocab_size 20 --seq_length 10 --batch_size 32
 """
 import argparse
 import numpy as np
@@ -20,24 +20,7 @@ from models.models import LSTM
 def generate_reverse_batch(batch_size, seq_length, vocab_size, device='cuda'):
     """
     Generate a batch of reverse sequences using raw integers.
-
-    Format: [BOS, tok1, tok2, ..., tokN, SEP, tokN, tokN-1, ..., tok1, EOS, PAD, PAD, ...]
-
-    Special tokens:
-        - vocab_size - 4: BOS (beginning of sequence)
-        - vocab_size - 3: SEP (separator between input and output)
-        - vocab_size - 2: EOS (end of sequence)
-        - vocab_size - 1: PAD (padding)
-
-    Args:
-        batch_size: Number of sequences in batch
-        seq_length: Length of the sequence to reverse (not counting special tokens)
-        vocab_size: Total vocabulary size (including special tokens)
-        device: Device to create tensors on
-
-    Returns:
-        x_ids: [batch_size, max_len] - Input sequences
-        y_ids: [batch_size, max_len] - Target sequences (shifted by 1 for teacher forcing)
+    Format: [BOS, tok1, tok2, ..., tokN, SEP, tokN, tokN-1, ..., tok1, EOS, PAD, ...]
     """
     # Special tokens
     BOS = vocab_size - 4
@@ -45,13 +28,8 @@ def generate_reverse_batch(batch_size, seq_length, vocab_size, device='cuda'):
     EOS = vocab_size - 2
     PAD = vocab_size - 1
 
-    # Content vocab is [0, vocab_size - 4)
     content_vocab_size = vocab_size - 4
 
-    # Maximum sequence length: BOS + seq_length + SEP + seq_length + EOS
-    max_len = 1 + seq_length + 1 + seq_length + 1
-
-    # Generate random sequences
     x_batch = []
     y_batch = []
 
@@ -63,7 +41,6 @@ def generate_reverse_batch(batch_size, seq_length, vocab_size, device='cuda'):
         full_seq = [BOS] + seq.tolist() + [SEP] + seq[::-1].tolist() + [EOS]
 
         # Input and target are the same sequence (teacher forcing)
-        # The model will predict next token at each position
         x_seq = full_seq
         y_seq = full_seq
 
@@ -82,61 +59,33 @@ def generate_reverse_batch(batch_size, seq_length, vocab_size, device='cuda'):
 # ============================================================================
 
 def compute_reverse_loss(logits, targets, pad_id):
-    """
-    Compute cross-entropy loss, ignoring padding tokens.
-
-    Args:
-        logits: [batch_size, seq_len, vocab_size]
-        targets: [batch_size, seq_len]
-        pad_id: Token ID to ignore in loss
-
-    Returns:
-        loss: Scalar tensor
-    """
+    """Compute cross-entropy loss, ignoring padding tokens."""
     B, T, V = logits.shape
-
-    # Reshape for cross entropy
     logits_flat = logits.reshape(-1, V)
     targets_flat = targets.reshape(-1)
-
-    # Compute loss, ignoring padding
     loss = nn.functional.cross_entropy(
         logits_flat,
         targets_flat,
         ignore_index=pad_id,
         reduction='mean'
     )
-
     return loss
 
 
 def compute_reverse_accuracy(logits, targets, sep_id, pad_id):
-    """
-    Compute accuracy only on the output part (after SEP token).
-
-    Args:
-        logits: [batch_size, seq_len, vocab_size]
-        targets: [batch_size, seq_len]
-        sep_id: Separator token ID
-        pad_id: Padding token ID
-
-    Returns:
-        accuracy: Float between 0 and 1
-    """
+    """Compute accuracy only on the output part (after SEP token)."""
     B, T, V = logits.shape
-    preds = logits.argmax(dim=-1)  # [B, T]
+    preds = logits.argmax(dim=-1)
 
     total_correct = 0
     total_tokens = 0
 
     for b in range(B):
-        # Find SEP position
         sep_positions = (targets[b] == sep_id).nonzero(as_tuple=True)[0]
         if len(sep_positions) == 0:
             continue
         sep_pos = sep_positions[0].item()
 
-        # Check predictions after SEP (the reversed sequence)
         for t in range(sep_pos + 1, T):
             if targets[b, t] == pad_id:
                 break
@@ -148,29 +97,106 @@ def compute_reverse_accuracy(logits, targets, sep_id, pad_id):
 
 
 # ============================================================================
+# Zero-Order Optimization (Central Difference SPSA)
+# ============================================================================
+
+def zeroth_order_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon=0.01, num_perturbations=2):
+    """
+    Perform a single zero-order optimization step using central difference.
+
+    Args:
+        model: The LSTM model
+        embed: Embedding layer
+        x_ids: Input token IDs [B, T]
+        y_ids: Target token IDs [B, T]
+        pad_id: Padding token ID
+        learning_rate: Step size
+        epsilon: Perturbation size
+        num_perturbations: Number of random directions to sample
+
+    Returns:
+        loss: Current loss value
+    """
+    # Get current loss (evaluation)
+    with torch.no_grad():
+        x_emb = embed(x_ids)
+        logits, _, _ = model(x_emb, require_gradients=False)
+        current_loss = compute_reverse_loss(logits, y_ids, pad_id).item()
+
+    # Collect all parameters
+    param_list = list(model.parameters()) + list(embed.parameters())
+
+    # Estimate gradient using random perturbations
+    pseudo_gradient = [torch.zeros_like(p) for p in param_list]
+
+    for _ in range(num_perturbations):
+        # Generate random direction
+        perturbations = [torch.randn_like(p) for p in param_list]
+
+        # Positive perturbation
+        with torch.no_grad():
+            for p, pert in zip(param_list, perturbations):
+                p.add_(pert, alpha=epsilon)
+
+            x_emb = embed(x_ids)
+            logits_plus, _, _ = model(x_emb, require_gradients=False)
+            loss_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
+
+            # Restore and apply negative perturbation
+            for p, pert in zip(param_list, perturbations):
+                p.add_(pert, alpha=-2 * epsilon)
+
+            x_emb = embed(x_ids)
+            logits_minus, _, _ = model(x_emb, require_gradients=False)
+            loss_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
+
+            # Restore parameters
+            for p, pert in zip(param_list, perturbations):
+                p.add_(pert, alpha=epsilon)
+
+        # Accumulate gradient estimate: g ≈ (f(θ+εd) - f(θ-εd)) / (2ε) * d
+        grad_estimate = (loss_plus - loss_minus) / (2 * epsilon)
+        for i, pert in enumerate(perturbations):
+            pseudo_gradient[i].add_(pert, alpha=grad_estimate)
+
+    # Average over perturbations
+    for pg in pseudo_gradient:
+        pg.div_(num_perturbations)
+
+    # Update parameters
+    with torch.no_grad():
+        for p, pg in zip(param_list, pseudo_gradient):
+            p.add_(pg, alpha=-learning_rate)
+
+    return current_loss
+
+
+# ============================================================================
 # Training Loop
 # ============================================================================
 
-def train_reverse_task(
+def train_reverse_task_zeroth_order(
     vocab_size=50,
     seq_length=10,
     hidden_size=256,
     num_heads=8,
     batch_size=32,
     num_steps=1000,
-    learning_rate=0.001,
+    learning_rate=0.1,
+    epsilon=0.01,
+    num_perturbations=2,
     device='cuda',
     print_every=100,
     eval_every=100
 ):
     """
-    Train an LSTM to reverse sequences.
+    Train an LSTM to reverse sequences using zero-order optimization.
     """
-    # Setup
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     print(f"Vocab size: {vocab_size}, Seq length: {seq_length}")
     print(f"Hidden size: {hidden_size}, Num heads: {num_heads}")
+    print(f"Zero-Order Optimization: lr={learning_rate}, epsilon={epsilon}, perturbations={num_perturbations}")
 
     # Special tokens
     SEP = vocab_size - 3
@@ -190,36 +216,30 @@ def train_reverse_task(
         dtype=torch.bfloat16
     )
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
     print(f"\nModel parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Training loop
     print("\n" + "="*60)
-    print("Training...")
+    print("Training with Zero-Order Optimization (Gradient-Free)...")
     print("="*60)
 
     for step in range(num_steps):
         # Generate batch
         x_ids, y_ids = generate_reverse_batch(batch_size, seq_length, vocab_size, device)
 
-        # Forward pass
-        x_emb = embed(x_ids)
-        logits, _, _ = model(x_emb, require_gradients=True)
-
-        # Compute loss
-        loss = compute_reverse_loss(logits, y_ids, PAD)
-
-        # Backward pass
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # Zero-order optimization step
+        loss = zeroth_order_step(
+            model, embed, x_ids, y_ids, PAD,
+            learning_rate, epsilon, num_perturbations
+        )
 
         # Logging
         if (step + 1) % print_every == 0:
             with torch.no_grad():
+                x_emb = embed(x_ids)
+                logits, _, _ = model(x_emb, require_gradients=False)
                 accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
-            print(f"Step {step+1:4d}: Loss={loss.item():.4f}, Accuracy={accuracy:.4f}")
+            print(f"Step {step+1:4d}: Loss={loss:.4f}, Accuracy={accuracy:.4f}")
 
         # Evaluation
         if (step + 1) % eval_every == 0:
@@ -231,10 +251,7 @@ def train_reverse_task(
 
 
 def evaluate_model(model, embed, vocab_size, seq_length, device, num_samples=5):
-    """
-    Evaluate the model and print example predictions.
-    """
-    # Special tokens
+    """Evaluate the model and print example predictions."""
     BOS = vocab_size - 4
     SEP = vocab_size - 3
     EOS = vocab_size - 2
@@ -247,26 +264,22 @@ def evaluate_model(model, embed, vocab_size, seq_length, device, num_samples=5):
         preds = logits.argmax(dim=-1)
 
         for i in range(num_samples):
-            # Find SEP position
             sep_positions = (y_ids[i] == SEP).nonzero(as_tuple=True)[0]
             if len(sep_positions) == 0:
                 continue
             sep_pos = sep_positions[0].item()
 
-            # Extract sequences
-            input_seq = x_ids[i, 1:sep_pos].cpu().numpy()  # Skip BOS
+            input_seq = x_ids[i, 1:sep_pos].cpu().numpy()
             target_seq = y_ids[i, sep_pos+1:].cpu().numpy()
             pred_seq = preds[i, sep_pos+1:].cpu().numpy()
 
-            # Remove padding
             target_seq = target_seq[target_seq != PAD]
             pred_seq = pred_seq[:len(target_seq)]
 
-            # Print
             print(f"Example {i+1}:")
             print(f"  Input:    {list(input_seq)}")
-            print(f"  Target:   {list(target_seq[:-1])}")  # Remove EOS
-            print(f"  Predicted: {list(pred_seq[:-1])}")  # Remove EOS
+            print(f"  Target:   {list(target_seq[:-1])}")
+            print(f"  Predicted: {list(pred_seq[:-1])}")
             print(f"  Match: {np.array_equal(target_seq[:-1], pred_seq[:-1])}")
             print()
 
@@ -276,14 +289,16 @@ def evaluate_model(model, embed, vocab_size, seq_length, device, num_samples=5):
 # ============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='Train LSTM on reverse task (no tokenization)')
+    parser = argparse.ArgumentParser(description='Train LSTM on reverse task with zero-order optimization')
     parser.add_argument('--vocab_size', type=int, default=50, help='Vocabulary size')
     parser.add_argument('--seq_length', type=int, default=10, help='Sequence length to reverse')
     parser.add_argument('--hidden_size', type=int, default=256, help='Hidden size')
     parser.add_argument('--num_heads', type=int, default=8, help='Number of heads')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--num_steps', type=int, default=1000, help='Number of training steps')
-    parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.1, help='Learning rate')
+    parser.add_argument('--epsilon', type=float, default=0.01, help='Perturbation size')
+    parser.add_argument('--num_perturbations', type=int, default=2, help='Number of random directions')
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda or cpu)')
     parser.add_argument('--print_every', type=int, default=100, help='Print frequency')
     parser.add_argument('--eval_every', type=int, default=100, help='Evaluation frequency')
@@ -296,7 +311,7 @@ def main():
     np.random.seed(args.seed)
 
     # Train
-    train_reverse_task(
+    train_reverse_task_zeroth_order(
         vocab_size=args.vocab_size,
         seq_length=args.seq_length,
         hidden_size=args.hidden_size,
@@ -304,6 +319,8 @@ def main():
         batch_size=args.batch_size,
         num_steps=args.num_steps,
         learning_rate=args.learning_rate,
+        epsilon=args.epsilon,
+        num_perturbations=args.num_perturbations,
         device=args.device,
         print_every=args.print_every,
         eval_every=args.eval_every
