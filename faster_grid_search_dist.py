@@ -92,13 +92,13 @@ def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, eps
         full_seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
         chunks = list(full_seeds.chunk(world_size, dim=0))
     else:
+        full_seeds = torch.empty(world_size, dtype=torch.int32, device=device)
         chunks = None
 
     if world_size > 1:
         dist.scatter(seeds_local, chunks, src=0)
     else:
-        if rank == 0:
-            seeds_local = full_seeds[:1]
+        seeds_local.copy_(full_seeds[:1])
 
     local_seed = int(seeds_local[0].item())
 
@@ -435,7 +435,7 @@ def main():
     world_size = dist.get_world_size()
 
     # Set device
-    local_rank = args.local_rank if args.local_rank != -1 else args.local__rank if hasattr(args, 'local__rank') else rank
+    local_rank = args.local_rank if args.local_rank != -1 else rank
     torch.cuda.set_device(local_rank)
     device = torch.device(f'cuda:{local_rank}')
 
