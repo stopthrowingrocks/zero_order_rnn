@@ -70,61 +70,84 @@ def apply_probe(param_list, epsilon, seed):
 
 def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, rank, world_size):
     """
-    Perform one distributed SPSA step.
-    - Each rank computes one perturbation
-    - All ranks reduce gradients to rank 0
-    - Only rank 0 updates parameters
+    Perform one distributed SPSA step following the pattern from distributed_rge.py:
+    1. Broadcast parameters from rank 0
+    2. Scatter seeds to all ranks
+    3. Each rank computes local perturbations (±ε)
+    4. Accumulate weighted gradients in rolling buffer
+    5. Reduce rolling buffer to rank 0
+    6. Only rank 0 updates parameters
     """
     param_list = list(model.parameters()) + list(embed.parameters())
     device = param_list[0].device
 
-    with torch.no_grad():
-        # 1. Broadcast parameters from rank 0 to all ranks
-        if world_size > 1:
-            for p in param_list:
-                dist.broadcast(p.data, src=0)
+    # 1. Broadcast θ from rank 0 to all ranks
+    if world_size > 1:
+        for p in param_list:
+            dist.broadcast(p.data, src=0)
 
-        # 2. Generate and scatter seeds
+    # 2. Scatter seeds - use scatter instead of broadcast
+    seeds_local = torch.zeros(1, dtype=torch.int32, device=device)
+    if rank == 0:
+        full_seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
+        chunks = list(full_seeds.chunk(world_size, dim=0))
+    else:
+        chunks = None
+
+    if world_size > 1:
+        dist.scatter(seeds_local, chunks, src=0)
+    else:
         if rank == 0:
-            seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
-        else:
-            seeds = torch.zeros(world_size, dtype=torch.int32, device=device)
+            seeds_local = full_seeds[:1]
 
-        if world_size > 1:
-            dist.broadcast(seeds, src=0)
+    local_seed = int(seeds_local[0].item())
 
-        local_seed = int(seeds[rank].item())
+    # 3. Initialize rolling buffer for weighted probes
+    rolling_sum_weighted_probe = [torch.zeros_like(p.data) for p in param_list]
 
-        # 3. Each rank computes its perturbation
-        # Apply +ε perturbation
-        apply_probe(param_list, epsilon, local_seed)
-
+    # 4. Compute local perturbation (central difference)
+    with torch.no_grad():
+        # +ε
+        apply_probe(param_list, +epsilon, local_seed)
         x_emb = embed(x_ids)
         logits_plus, _, _ = model(x_emb, require_gradients=False)
         loss_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
 
-        # Apply -2ε to get -ε
+        # -ε (apply -2ε to go from +ε to -ε)
         apply_probe(param_list, -2.0 * epsilon, local_seed)
-
         x_emb = embed(x_ids)
         logits_minus, _, _ = model(x_emb, require_gradients=False)
         loss_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
 
-        # Restore to original (+ε again)
-        apply_probe(param_list, epsilon, local_seed)
-
-        # 4. Compute gradient coefficient
+        # Compute gradient coefficient and restore parameters
         coef = (loss_plus - loss_minus) / (2.0 * world_size)
+        restore_coeff = -learning_rate * coef  # GD direction with learning rate
 
-        # 5. Apply weighted perturbation (gradient contribution with learning rate)
-        apply_probe(param_list, -learning_rate * coef, local_seed)
+        # Restore to original (+ε) AND accumulate weighted probe in rolling buffer
+        rng_state = torch.get_rng_state()
+        torch.manual_seed(local_seed)
+        for i, p in enumerate(param_list):
+            probe = torch.randn_like(p)
+            p.data.add_(probe, alpha=epsilon)  # restore
+            rolling_sum_weighted_probe[i].add_(probe, alpha=restore_coeff)  # accumulate
+        torch.set_rng_state(rng_state)
 
-        # 6. Reduce all parameters to rank 0
-        if world_size > 1:
-            for p in param_list:
-                dist.reduce(p.data, dst=0, op=dist.ReduceOp.SUM)
+    # 5. Reduce rolling buffer to rank 0
+    if world_size > 1:
+        for buf in rolling_sum_weighted_probe:
+            dist.reduce(buf, dst=0, op=dist.ReduceOp.SUM)
 
-    # 7. Return average loss for logging (only rank 0 needs this)
+    # 6. Only rank 0 applies the accumulated update
+    if rank == 0:
+        with torch.no_grad():
+            for p, acc in zip(param_list, rolling_sum_weighted_probe):
+                p.data.add_(acc)
+
+    # 7. Barrier to ensure all ranks are synchronized
+    if world_size > 1:
+        dist.barrier()
+
+    # Return average loss for logging
     current_loss = (loss_plus + loss_minus) / 2.0
     return current_loss
 
