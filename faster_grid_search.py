@@ -213,7 +213,7 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
     convergence_loss = 0.1
 
     # LR values from high to low (reversed from original)
-    learning_rates = 10 ** np.arange(0.4, -2 - 0.6, -0.2)  # 10^0 down to 10^-2
+    learning_rates = 10 ** np.arange(-0.6, -2 - 0.6, -0.2)  # 10^0 down to 10^-2
 
     # Start with generous max_time, will be updated after first convergence
     # Hard cap at 60 seconds per run
