@@ -102,13 +102,17 @@ def zeroth_order_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon
 
 def train_with_early_stop(batch_size, perturbations, num_gpus, learning_rate, vocab_size,
                           min_tokens, max_tokens, max_time, convergence_loss, device, seed,
-                          hidden_size=128, num_heads=4, epsilon=0.1):
+                          hidden_size=128, num_heads=4):
     """
     Train SPSA with early stopping if loss increases by 3x from initial loss.
+    IMPORTANT: epsilon is always set equal to learning_rate.
     Returns: dict with final_loss, steps, elapsed_time, terminated_early, converged
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
+
+    # Always set epsilon = learning_rate
+    epsilon = learning_rate
 
     device_obj = torch.device(device if torch.cuda.is_available() else 'cpu')
     PAD = vocab_size - 1
@@ -197,7 +201,7 @@ def append_to_csv(filename, row_dict):
 
 def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, vocab_size,
                                        min_tokens, num_gpus, device, base_seed,
-                                       hidden_size=128, num_heads=4, epsilon=0.1):
+                                       hidden_size=128, num_heads=4):
     """
     Adaptive LR search for a specific max_tokens value:
     1. Start with high LR, search downwards
@@ -248,7 +252,7 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
                 'min_tokens': min_tokens,
                 'max_tokens': int(max_tokens),
                 'seed': seed,
-                'epsilon': epsilon,
+                'epsilon': lr,  # epsilon = learning_rate
                 'hidden_size': hidden_size,
                 'num_heads': num_heads,
                 'max_time': max_time,
@@ -271,8 +275,7 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
                 device=device,
                 seed=seed,
                 hidden_size=hidden_size,
-                num_heads=num_heads,
-                epsilon=epsilon
+                num_heads=num_heads
             )
 
             # Log final results to wandb
@@ -367,7 +370,6 @@ def main():
     max_tokens_values = 10 ** np.arange(1, 3 + 0.2, 0.2)  # 10^1 to 10^3
 
     device = 'cuda'
-    epsilon = 0.1
     hidden_size = 128
     num_heads = 4
     base_seed = 42
@@ -400,8 +402,7 @@ def main():
             device=device,
             base_seed=base_seed + mt_idx * 1000,
             hidden_size=hidden_size,
-            num_heads=num_heads,
-            epsilon=epsilon
+            num_heads=num_heads
         )
 
         # Summary for this max_tokens
