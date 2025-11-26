@@ -250,7 +250,7 @@ def main():
 
         # Initialize wandb
         wandb.init(
-            project="zero-order-rnn-grid-search",
+            project="zero_order_rnn",
             name=run_name,
             config={
                 'batch_size': batch_size,
