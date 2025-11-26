@@ -78,52 +78,51 @@ def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, eps
     param_list = list(model.parameters()) + list(embed.parameters())
     device = param_list[0].device
 
-    # 1. Broadcast parameters from rank 0 to all ranks
-    if world_size > 1:
-        for p in param_list:
-            dist.broadcast(p.data, src=0)
-
-    # 2. Generate and scatter seeds
-    if rank == 0:
-        seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
-    else:
-        seeds = torch.zeros(world_size, dtype=torch.int32, device=device)
-
-    if world_size > 1:
-        dist.broadcast(seeds, src=0)
-
-    local_seed = int(seeds[rank].item())
-
-    # 3. Each rank computes its perturbation
-    # Apply +ε perturbation
-    apply_probe(param_list, epsilon, local_seed)
-
     with torch.no_grad():
+        # 1. Broadcast parameters from rank 0 to all ranks
+        if world_size > 1:
+            for p in param_list:
+                dist.broadcast(p.data, src=0)
+
+        # 2. Generate and scatter seeds
+        if rank == 0:
+            seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
+        else:
+            seeds = torch.zeros(world_size, dtype=torch.int32, device=device)
+
+        if world_size > 1:
+            dist.broadcast(seeds, src=0)
+
+        local_seed = int(seeds[rank].item())
+
+        # 3. Each rank computes its perturbation
+        # Apply +ε perturbation
+        apply_probe(param_list, epsilon, local_seed)
+
         x_emb = embed(x_ids)
         logits_plus, _, _ = model(x_emb, require_gradients=False)
         loss_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
 
-    # Apply -2ε to get -ε
-    apply_probe(param_list, -2.0 * epsilon, local_seed)
+        # Apply -2ε to get -ε
+        apply_probe(param_list, -2.0 * epsilon, local_seed)
 
-    with torch.no_grad():
         x_emb = embed(x_ids)
         logits_minus, _, _ = model(x_emb, require_gradients=False)
         loss_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
 
-    # Restore to original (+ε again)
-    apply_probe(param_list, epsilon, local_seed)
+        # Restore to original (+ε again)
+        apply_probe(param_list, epsilon, local_seed)
 
-    # 4. Compute gradient coefficient
-    coef = (loss_plus - loss_minus) / (2.0 * world_size)
+        # 4. Compute gradient coefficient
+        coef = (loss_plus - loss_minus) / (2.0 * world_size)
 
-    # 5. Apply weighted perturbation
-    apply_probe(param_list, -coef, local_seed)
+        # 5. Apply weighted perturbation (gradient contribution with learning rate)
+        apply_probe(param_list, -learning_rate * coef, local_seed)
 
-    # 6. Reduce all parameters to rank 0
-    if world_size > 1:
-        for p in param_list:
-            dist.reduce(p.data, dst=0, op=dist.ReduceOp.SUM)
+        # 6. Reduce all parameters to rank 0
+        if world_size > 1:
+            for p in param_list:
+                dist.reduce(p.data, dst=0, op=dist.ReduceOp.SUM)
 
     # 7. Return average loss for logging (only rank 0 needs this)
     current_loss = (loss_plus + loss_minus) / 2.0
