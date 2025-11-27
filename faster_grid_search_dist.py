@@ -143,7 +143,12 @@ def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, eps
             for p, acc in zip(param_list, rolling_sum_weighted_probe):
                 p.data.add_(acc)
 
-    # 7. Barrier to ensure all ranks are synchronized
+    # 7. Broadcast updated parameters from rank 0 to all ranks
+    if world_size > 1:
+        for p in param_list:
+            dist.broadcast(p.data, src=0)
+
+    # 8. Barrier to ensure all ranks are synchronized
     if world_size > 1:
         dist.barrier()
 
