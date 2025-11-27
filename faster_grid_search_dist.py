@@ -291,6 +291,10 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
 
         seed = base_seed + lr_idx
 
+        # Synchronize before wandb init
+        if world_size > 1:
+            dist.barrier()
+
         # Only rank 0 initializes wandb
         if rank == 0:
             run_name = (f"fast_dist_batch_{batch_size}_pert_{perturbations}_gpus_{num_gpus}_"
@@ -318,6 +322,10 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
                 },
                 reinit=True
             )
+
+        # Synchronize after wandb init (rank 0 may have been blocked)
+        if world_size > 1:
+            dist.barrier()
 
         try:
             result = train_with_early_stop_distributed(
