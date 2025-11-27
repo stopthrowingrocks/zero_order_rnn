@@ -119,7 +119,7 @@ def train_with_early_stop(batch_size, perturbations, num_gpus, learning_rate, vo
 
     embed = nn.Embedding(vocab_size, hidden_size, device=device_obj, dtype=torch.bfloat16)
     model = LSTM(
-        input_size=hidden_size,
+        input_size=input_size,
         output_size=vocab_size,
         hidden_size=hidden_size,
         memory_size=0,

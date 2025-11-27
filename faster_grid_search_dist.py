@@ -442,6 +442,12 @@ def main():
     parser.add_argument("--local_rank", type=int, default=-1)  # torchrun uses this
     args = parser.parse_args()
 
+    try:
+        torch.cuda.set_device(args.local_rank)
+    except RuntimeError as e:
+        print(f"Error metadata. Local rank: {args.local_rank}, CUDA Available: {torch.cuda.is_available()}, Device Count: {torch.cuda.device_count()}, GPU Name 0: {torch.cuda.get_device_name(0)}")
+        raise e
+
     # Initialize distributed
     dist.init_process_group(backend="nccl")
     rank = dist.get_rank()
