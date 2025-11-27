@@ -68,69 +68,84 @@ def apply_probe(param_list, epsilon, seed):
     torch.set_rng_state(rng_state)
 
 
-def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, rank, world_size):
+def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_perturbations, rank, world_size):
     """
     Perform one distributed SPSA step following the pattern from distributed_rge.py:
     1. Broadcast parameters from rank 0
     2. Scatter seeds to all ranks
-    3. Each rank computes local perturbations (±ε)
+    3. Each rank computes local perturbations (±ε), potentially multiple times
     4. Accumulate weighted gradients in rolling buffer
     5. Reduce rolling buffer to rank 0
     6. Only rank 0 updates parameters
+
+    Args:
+        num_perturbations: Total number of perturbations. Each rank handles num_perturbations // world_size
     """
     param_list = list(model.parameters()) + list(embed.parameters())
     device = param_list[0].device
+
+    # Calculate perturbations per rank
+    perturbations_per_rank = num_perturbations // world_size
+    if perturbations_per_rank == 0:
+        perturbations_per_rank = 1
+
+    total_perturbations = perturbations_per_rank * world_size
 
     # 1. Broadcast θ from rank 0 to all ranks
     if world_size > 1:
         for p in param_list:
             dist.broadcast(p.data, src=0)
 
-    # 2. Scatter seeds - use scatter instead of broadcast
-    seeds_local = torch.zeros(1, dtype=torch.int32, device=device)
-    if rank == 0:
-        full_seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
-        chunks = list(full_seeds.chunk(world_size, dim=0))
-    else:
-        full_seeds = torch.empty(world_size, dtype=torch.int32, device=device)
-        chunks = None
-
-    if world_size > 1:
-        dist.scatter(seeds_local, chunks, src=0)
-    else:
-        seeds_local.copy_(full_seeds[:1])
-
-    local_seed = int(seeds_local[0].item())
-
-    # 3. Initialize rolling buffer for weighted probes
+    # 2. Initialize rolling buffer for weighted probes
     rolling_sum_weighted_probe = [torch.zeros_like(p.data) for p in param_list]
 
-    # 4. Compute local perturbation (central difference)
-    with torch.no_grad():
-        # +ε
-        apply_probe(param_list, +epsilon, local_seed)
-        x_emb = embed(x_ids)
-        logits_plus, _, _ = model(x_emb, require_gradients=False)
-        loss_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
+    # 3. Each rank computes multiple perturbations
+    all_losses = []
+    for pert_idx in range(perturbations_per_rank):
+        # Scatter seeds for this perturbation
+        seeds_local = torch.zeros(1, dtype=torch.int32, device=device)
+        if rank == 0:
+            full_seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
+            chunks = list(full_seeds.chunk(world_size, dim=0))
+        else:
+            full_seeds = torch.empty(world_size, dtype=torch.int32, device=device)
+            chunks = None
 
-        # -ε (apply -2ε to go from +ε to -ε)
-        apply_probe(param_list, -2.0 * epsilon, local_seed)
-        x_emb = embed(x_ids)
-        logits_minus, _, _ = model(x_emb, require_gradients=False)
-        loss_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
+        if world_size > 1:
+            dist.scatter(seeds_local, chunks, src=0)
+        else:
+            seeds_local.copy_(full_seeds[:1])
 
-        # Compute gradient coefficient and restore parameters
-        coef = (loss_plus - loss_minus) / (2.0 * world_size)
-        restore_coeff = -learning_rate * coef  # GD direction with learning rate
+        local_seed = int(seeds_local[0].item())
 
-        # Restore to original (+ε) AND accumulate weighted probe in rolling buffer
-        rng_state = torch.get_rng_state()
-        torch.manual_seed(local_seed)
-        for i, p in enumerate(param_list):
-            probe = torch.randn_like(p)
-            p.data.add_(probe, alpha=epsilon)  # restore
-            rolling_sum_weighted_probe[i].add_(probe, alpha=restore_coeff)  # accumulate
-        torch.set_rng_state(rng_state)
+        # 4. Compute local perturbation (central difference)
+        with torch.no_grad():
+            # +ε
+            apply_probe(param_list, +epsilon, local_seed)
+            x_emb = embed(x_ids)
+            logits_plus, _, _ = model(x_emb, require_gradients=False)
+            loss_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
+
+            # -ε (apply -2ε to go from +ε to -ε)
+            apply_probe(param_list, -2.0 * epsilon, local_seed)
+            x_emb = embed(x_ids)
+            logits_minus, _, _ = model(x_emb, require_gradients=False)
+            loss_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
+
+            # Compute gradient coefficient and restore parameters
+            coef = (loss_plus - loss_minus) / (2.0 * total_perturbations)
+            restore_coeff = -learning_rate * coef  # GD direction with learning rate
+
+            # Restore to original (+ε) AND accumulate weighted probe in rolling buffer
+            rng_state = torch.get_rng_state()
+            torch.manual_seed(local_seed)
+            for i, p in enumerate(param_list):
+                probe = torch.randn_like(p)
+                p.data.add_(probe, alpha=epsilon)  # restore
+                rolling_sum_weighted_probe[i].add_(probe, alpha=restore_coeff)  # accumulate
+            torch.set_rng_state(rng_state)
+
+            all_losses.append((loss_plus + loss_minus) / 2.0)
 
     # 5. Reduce rolling buffer to rank 0
     if world_size > 1:
@@ -153,11 +168,11 @@ def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, eps
         dist.barrier()
 
     # Return average loss for logging
-    current_loss = (loss_plus + loss_minus) / 2.0
+    current_loss = sum(all_losses) / len(all_losses) if all_losses else 0.0
     return current_loss
 
 
-def train_with_early_stop_distributed(batch_size, num_gpus, learning_rate, vocab_size,
+def train_with_early_stop_distributed(batch_size, perturbations, num_gpus, learning_rate, vocab_size,
                                         min_tokens, max_tokens, max_time, convergence_loss,
                                         rank, world_size, device, seed,
                                         hidden_size=240, num_heads=12, input_size=100):
@@ -201,7 +216,7 @@ def train_with_early_stop_distributed(batch_size, num_gpus, learning_rate, vocab
 
         loss = distributed_spsa_step(
             model, embed, x_ids, y_ids, PAD,
-            learning_rate, epsilon, rank, world_size
+            learning_rate, epsilon, perturbations, rank, world_size
         )
 
         if rank == 0:
@@ -335,6 +350,7 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
         try:
             result = train_with_early_stop_distributed(
                 batch_size=batch_size,
+                perturbations=perturbations,
                 num_gpus=num_gpus,
                 learning_rate=lr,
                 vocab_size=vocab_size,
@@ -400,7 +416,7 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
                     'max_time_used': max_time,
                     'optalg': 'SPSA_distributed'
                 }
-                append_to_csv('losses_fast_dist.csv', csv_row)
+                append_to_csv('losses_max_10.csv', csv_row)
 
         except Exception as e:
             if rank == 0:
@@ -426,7 +442,7 @@ def adaptive_lr_search_for_max_tokens(max_tokens, batch_size, perturbations, voc
                     'max_time_used': max_time,
                     'optalg': 'SPSA_distributed'
                 }
-                append_to_csv('losses_fast_dist.csv', csv_row)
+                append_to_csv('losses_max_10.csv', csv_row)
 
         finally:
             if rank == 0:
@@ -459,15 +475,13 @@ def main():
     torch.cuda.set_device(local_rank)
     device = torch.device(f'cuda:{local_rank}')
 
-    # Fixed parameters
-    batch_size = 16
-    perturbations = world_size  # 1 perturbation per GPU
+    # Grid search parameters
+    batch_sizes = [16, 32]
+    perturbations_values = [8, 16, 24, 32, 48, 64]
+    max_tokens = 10  # Fixed
     num_gpus = world_size
     vocab_size = 64
     min_tokens = 5
-
-    # Test all max_tokens values
-    max_tokens_values = 10 ** np.arange(1, 3 + 0.2, 0.2)  # 10^1 to 10^3
 
     hidden_size = 240
     num_heads = 12
@@ -476,52 +490,59 @@ def main():
 
     if rank == 0:
         print("="*80)
-        print("DISTRIBUTED FASTER GRID SEARCH")
+        print("DISTRIBUTED GRID SEARCH FOR MAX_TOKENS=10")
         print("="*80)
         print(f"World size: {world_size} GPUs")
-        print(f"Fixed: batch_size={batch_size}, perturbations={perturbations} (1 per GPU)")
-        print(f"Testing {len(max_tokens_values)} max_tokens values")
-        print(f"Output: losses_fast_dist.csv")
+        print(f"Fixed: max_tokens={max_tokens}")
+        print(f"Grid: batch_size={batch_sizes}")
+        print(f"Grid: perturbations={perturbations_values}")
+        print(f"Total combinations: {len(batch_sizes)} × {len(perturbations_values)} = {len(batch_sizes) * len(perturbations_values)}")
+        print(f"Output: losses_max_10.csv")
         print("="*80)
         print()
 
-    for mt_idx, max_tok in enumerate(max_tokens_values):
-        if rank == 0:
-            print(f"\n[{mt_idx+1}/{len(max_tokens_values)}] MAX_TOKENS={int(max_tok)}")
-            print("-"*80)
+    combo_idx = 0
+    total_combos = len(batch_sizes) * len(perturbations_values)
 
-        results = adaptive_lr_search_for_max_tokens(
-            max_tokens=max_tok,
-            batch_size=batch_size,
-            perturbations=perturbations,
-            vocab_size=vocab_size,
-            min_tokens=min_tokens,
-            num_gpus=num_gpus,
-            rank=rank,
-            world_size=world_size,
-            device=device,
-            base_seed=base_seed + mt_idx * 1000,
-            hidden_size=hidden_size,
-            num_heads=num_heads,
-            input_size=input_size
-        )
+    for batch_size in batch_sizes:
+        for perturbations in perturbations_values:
+            combo_idx += 1
+            if rank == 0:
+                print(f"\n[{combo_idx}/{total_combos}] BATCH_SIZE={batch_size}, PERTURBATIONS={perturbations}")
+                print("-"*80)
 
-        if rank == 0:
-            # Summary
-            converged_results = [r for r in results if r['converged']]
-            print(f"\n  Summary for max_tokens={int(max_tok)}:")
-            print(f"    Tested {len(results)} LR values")
-            print(f"    Converged: {len(converged_results)}/{len(results)}")
-            if converged_results:
-                best = min(converged_results, key=lambda r: r['elapsed_time'])
-                print(f"    Best: LR={best['lr']:.6f} in {best['elapsed_time']:.2f}s")
+            results = adaptive_lr_search_for_max_tokens(
+                max_tokens=max_tokens,
+                batch_size=batch_size,
+                perturbations=perturbations,
+                vocab_size=vocab_size,
+                min_tokens=min_tokens,
+                num_gpus=num_gpus,
+                rank=rank,
+                world_size=world_size,
+                device=device,
+                base_seed=base_seed + combo_idx * 1000,
+                hidden_size=hidden_size,
+                num_heads=num_heads,
+                input_size=input_size
+            )
+
+            if rank == 0:
+                # Summary
+                converged_results = [r for r in results if r['converged']]
+                print(f"\n  Summary for batch_size={batch_size}, perturbations={perturbations}:")
+                print(f"    Tested {len(results)} LR values")
+                print(f"    Converged: {len(converged_results)}/{len(results)}")
+                if converged_results:
+                    best = min(converged_results, key=lambda r: r['elapsed_time'])
+                    print(f"    Best: LR={best['lr']:.6f} in {best['elapsed_time']:.2f}s")
 
     if rank == 0:
         print()
         print("="*80)
         print("DISTRIBUTED GRID SEARCH COMPLETE")
         print("="*80)
-        print(f"Results saved to: losses_fast_dist.csv")
+        print(f"Results saved to: losses_max_10.csv")
 
     dist.destroy_process_group()
 
