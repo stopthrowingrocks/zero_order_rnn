@@ -1,0 +1,1875 @@
+/usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+================================================================================
+FASTER ADAPTIVE GRID SEARCH
+================================================================================
+Fixed: batch_size=16, perturbations=8
+Testing 11 max_tokens values: [10, 15, 25, 39, 63, 99, 158, 251, 398, 630, 999]
+Strategy:
+  - LR search: high to low (10^0 down to 10^-2)
+  - Early stop: 3x loss increase from initial
+  - Adaptive timing: double first convergence time
+  - Stop: 2 LRs after first convergence
+Output: losses_fast.csv
+================================================================================
+
+
+[1/11] MAX_TOKENS=10
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Currently logged in as: stopthrowingrocks (stopthrowingrocks-stanford-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_182929-pou91ua0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/pou91ua0
+W1126 18:29:32.940000 43291 torch/utils/cpp_extension.py:2425] TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+W1126 18:29:32.940000 43291 torch/utils/cpp_extension.py:2425] If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'] to specific architectures.
+ninja: no work to do.
+wandb: updating run metadata
+wandb: uploading history steps 0-38, summary, console lines 0-2
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▂▃▂▃▄▄▄▅▄▅▅▅▅▆▇██▇
+wandb:         step ▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 9.34542
+wandb:       final_loss 12.75
+wandb:             loss 11.0625
+wandb:             step 380
+wandb: terminated_early True
+wandb:      total_steps 390
+wandb:       total_time 9.51878
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/pou91ua0
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_182929-pou91ua0/logs
+Terminated early (3x loss increase)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_182940-actclssj
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/actclssj
+wandb: updating run metadata
+wandb: uploading history steps 0-60, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▆▇███▇
+wandb:         step ▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 10.52996
+wandb:       final_loss 12.9375
+wandb:             loss 10.9375
+wandb:             step 600
+wandb: terminated_early True
+wandb:      total_steps 606
+wandb:       total_time 10.6327
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/actclssj
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_182940-actclssj/logs
+Terminated early (3x loss increase)
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_182952-tg1v1ps0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/tg1v1ps0
+wandb: updating run metadata
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇█
+wandb:   final_loss ▁
+wandb:         loss ▃▃▂▂▂▂▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▃▃▃▃▄▄▅▄▆▅▆▅▇▇▇▇██
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▄▄▄▄▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇█
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 37.56439
+wandb:       final_loss 13.5
+wandb:             loss 11.8125
+wandb:             step 2130
+wandb: terminated_early True
+wandb:      total_steps 2135
+wandb:       total_time 37.65277
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/tg1v1ps0
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_182952-tg1v1ps0/logs
+Terminated early (3x loss increase)
+    LR=0.063096 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183032-4nkpusg0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/4nkpusg0
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss █▇▆▆▅▂▂▂▂▂▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▂▂▃▃▄▄▄▅▅▅▅▅▆▆▆▆▆▆▆▆▆▇▇▇▇▇▇█████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.87605
+wandb:       final_loss 0.15527
+wandb:             loss 0.14355
+wandb:             step 3420
+wandb: terminated_early False
+wandb:      total_steps 3427
+wandb:       total_time 60.00092
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/4nkpusg0
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183032-4nkpusg0/logs
+Did not converge (loss=0.1553)
+    LR=0.039811 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183133-prf3in7t
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.039811_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/prf3in7t
+wandb: uploading output.log; uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▁▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▆▆▆▆▆▆▆▆▆▆▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss █▇▆▆▆▆▅▄▃▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▄▄▄▅▅▅▆▆▆▆▆▆▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.98993
+wandb:       final_loss 0.16895
+wandb:             loss 0.14844
+wandb:             step 3430
+wandb: terminated_early False
+wandb:      total_steps 3431
+wandb:       total_time 60.01073
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.039811_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/prf3in7t
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183133-prf3in7t/logs
+Did not converge (loss=0.1689)
+    LR=0.025119 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183235-uv1plzt7
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.025119_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/uv1plzt7
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▄▄▄▄▄▅▅▅▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇█████
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▆▅▅▄▄▃▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇█████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 60.0179
+wandb:       final_loss 0.30664
+wandb:             loss 0.30664
+wandb:             step 3440
+wandb: terminated_early False
+wandb:      total_steps 3440
+wandb:       total_time 60.01839
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.025119_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/uv1plzt7
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183235-uv1plzt7/logs
+Did not converge (loss=0.3066)
+    LR=0.015849 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183337-kn3lkh9l
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.015849_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/kn3lkh9l
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▂▂▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss █▇▇▆▆▅▅▄▄▄▃▃▃▃▃▂▂▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▂▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▆▆▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.90434
+wandb:       final_loss 0.43945
+wandb:             loss 0.43945
+wandb:             step 3410
+wandb: terminated_early False
+wandb:      total_steps 3416
+wandb:       total_time 60.01315
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.015849_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/kn3lkh9l
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183337-kn3lkh9l/logs
+Did not converge (loss=0.4395)
+    LR=0.010000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183438-rjdoct1o
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.010000_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/rjdoct1o
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▃▃▄▄▄▄▄▄▄▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇▇▇██████
+wandb:   final_loss ▁
+wandb:         loss █▇▆▆▅▅▅▄▄▄▄▃▃▃▃▂▂▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▆▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.92075
+wandb:       final_loss 1.02344
+wandb:             loss 1.08594
+wandb:             step 3430
+wandb: terminated_early False
+wandb:      total_steps 3435
+wandb:       total_time 60.0113
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.010000_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/rjdoct1o
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183438-rjdoct1o/logs
+Did not converge (loss=1.0234)
+    LR=0.006310 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183540-nu2htnqp
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.006310_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/nu2htnqp
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▆▆▅▅▄▄▄▃▃▃▃▃▃▃▃▃▃▂▂▂▂▂▂▂▂▂▂▁▂▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▆▆▆▆▆▇▇▇█████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.84908
+wandb:       final_loss 1.74219
+wandb:             loss 1.78906
+wandb:             step 3430
+wandb: terminated_early False
+wandb:      total_steps 3439
+wandb:       total_time 60.00981
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.006310_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/nu2htnqp
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183540-nu2htnqp/logs
+Did not converge (loss=1.7422)
+    LR=0.003981 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183642-3xgf28m7
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.003981_vocab_64_min_5_max_10
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/3xgf28m7
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▃▃▃▃▃▃▃▃▃▄▅▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▆▆▅▅▅▄▄▄▄▄▃▃▃▂▃▂▂▂▂▂▂▂▂▂▂▂▂▁▂▂▁▁▁▁▁
+wandb:         step ▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.92669
+wandb:       final_loss 2.3125
+wandb:             loss 2.3125
+wandb:             step 3450
+wandb: terminated_early False
+wandb:      total_steps 3455
+wandb:       total_time 60.01831
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.003981_vocab_64_min_5_max_10 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/3xgf28m7
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183642-3xgf28m7/logs
+Did not converge (loss=2.3125)
+
+  Summary for max_tokens=10:
+    Tested 10 LR values
+    Converged: 0/10
+
+[2/11] MAX_TOKENS=15
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183743-y1ut3xcm
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_15
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/y1ut3xcm
+wandb: updating run metadata
+wandb: uploading history steps 0-45, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ▂▂▂▁▁▁▁▁▁▁▁▁▂▁▁▂▂▃▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▆▇▇█▇█▇
+wandb:         step ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 8.44964
+wandb:       final_loss 12.625
+wandb:             loss 10.5
+wandb:             step 450
+wandb: terminated_early True
+wandb:      total_steps 458
+wandb:       total_time 8.59946
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_15 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/y1ut3xcm
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183743-y1ut3xcm/logs
+Terminated early (3x loss increase)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183754-tfi9xf6k
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_15
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/tfi9xf6k
+wandb: updating run metadata
+wandb: uploading history steps 81-88, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▃▃▃▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▇▇▇▇█████
+wandb:   final_loss ▁
+wandb:         loss ▂▂▂▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▃▄▃▃▃▃▃▄▄▅▄▅▅▅▆▅▆▆▆▇█
+wandb:         step ▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇██
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 16.49268
+wandb:       final_loss 13.1875
+wandb:             loss 12.25
+wandb:             step 880
+wandb: terminated_early True
+wandb:      total_steps 890
+wandb:       total_time 16.67912
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_15 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/tfi9xf6k
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183754-tfi9xf6k/logs
+Terminated early (3x loss increase)
+    LR=0.100000 (max_time=60.0s)... wandb: setting up run clyfzg5r
+wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183812-clyfzg5r
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_15
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/clyfzg5r
+wandb: updating run metadata
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▄▄▅▅▅▆▆▆▇▇▇▇▇▇█████
+wandb:   final_loss ▁
+wandb:         loss █▆▅▅▅▄▄▄▄▃▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇███████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 44.89606
+wandb:       final_loss 0.08984
+wandb:             loss 0.14941
+wandb:             step 2380
+wandb: terminated_early False
+wandb:      total_steps 2383
+wandb:       total_time 44.95295
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_15 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/clyfzg5r
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183812-clyfzg5r/logs
+CONVERGED in 44.95s! Setting max_time=60.0s
+    LR=0.063096 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183858-udt5deoc
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_15
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/udt5deoc
+wandb: updating run metadata
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss █▆▅▅▅▄▄▄▄▃▃▃▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇▇██
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 28.15714
+wandb:       final_loss 0.09668
+wandb:             loss 0.12207
+wandb:             step 1490
+wandb: terminated_early False
+wandb:      total_steps 1495
+wandb:       total_time 28.25204
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_15 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/udt5deoc
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183858-udt5deoc/logs
+Converged in 28.25s
+  Stopping LR search (2 LRs past first convergence)
+
+  Summary for max_tokens=15:
+    Tested 4 LR values
+    Converged: 2/4
+    Best: LR=0.063096 in 28.25s
+
+[3/11] MAX_TOKENS=25
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183928-85lpdzii
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_25
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/85lpdzii
+wandb: updating run metadata
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ▂▂▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▅▄▅▅▆▅▅▅▆▇▆▇█
+wandb:         step ▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 13.51277
+wandb:       final_loss 13.5625
+wandb:             loss 12.6875
+wandb:             step 630
+wandb: terminated_early True
+wandb:      total_steps 632
+wandb:       total_time 13.55626
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_25 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/85lpdzii
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183928-85lpdzii/logs
+Terminated early (3x loss increase)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_183943-q6z6yuyb
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_25
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/q6z6yuyb
+wandb: updating run metadata
+wandb: uploading history steps 67-131, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇▇█
+wandb:   final_loss ▁
+wandb:         loss ▃▂▂▂▁▁▁▁▂▁▁▁▁▁▂▂▂▂▂▂▂▃▃▃▃▄▄▄▅▅▅▅▅▇▇██▇▇█
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 28.53402
+wandb:       final_loss 12.8125
+wandb:             loss 10.75
+wandb:             step 1310
+wandb: terminated_early True
+wandb:      total_steps 1315
+wandb:       total_time 28.64067
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_25 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/q6z6yuyb
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_183943-q6z6yuyb/logs
+Terminated early (3x loss increase)
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184013-3m2hxo33
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_25
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/3m2hxo33
+wandb: updating run metadata
+wandb: uploading history steps 71-96, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▆▅▄▄▄▄▄▄▃▃▃▃▃▃▃▂▃▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 20.50468
+wandb:       final_loss 0.0957
+wandb:             loss 0.12793
+wandb:             step 960
+wandb: terminated_early False
+wandb:      total_steps 963
+wandb:       total_time 20.56906
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_25 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/3m2hxo33
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184013-3m2hxo33/logs
+CONVERGED in 20.57s! Setting max_time=41.1s
+    LR=0.063096 (max_time=41.1s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184035-eri3gkcm
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_25
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/eri3gkcm
+wandb: updating run metadata
+wandb: uploading history steps 70-116, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▁▂▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇█████
+wandb:   final_loss ▁
+wandb:         loss ███▇▆▆▅▅▄▄▄▄▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▃▃▄▄▄▄▄▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇▇▇▇▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 24.74397
+wandb:       final_loss 0.09668
+wandb:             loss 0.13184
+wandb:             step 1160
+wandb: terminated_early False
+wandb:      total_steps 1167
+wandb:       total_time 24.8938
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_25 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/eri3gkcm
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184035-eri3gkcm/logs
+Converged in 24.89s
+  Stopping LR search (2 LRs past first convergence)
+
+  Summary for max_tokens=25:
+    Tested 4 LR values
+    Converged: 2/4
+    Best: LR=0.100000 in 20.57s
+
+[4/11] MAX_TOKENS=39
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184102-wc4w5loy
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_39
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/wc4w5loy
+wandb: updating run metadata
+wandb: uploading history steps 60-107, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇▇█
+wandb:   final_loss ▁
+wandb:         loss ▁▁▁▁▁▁▁▂▂▂▂▃▂▃▃▄▃▃▃▃▃▃▃▃▃▄▄▄▆▆▅▅▅▅▅▆▆▆▆█
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇█████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 26.77855
+wandb:       final_loss 13.8125
+wandb:             loss 12
+wandb:             step 1070
+wandb: terminated_early True
+wandb:      total_steps 1079
+wandb:       total_time 27.00404
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_39 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/wc4w5loy
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184102-wc4w5loy/logs
+Terminated early (3x loss increase)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184130-bn84nqzq
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_39
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/bn84nqzq
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss █▆▆▆▅▄▄▄▄▃▃▃▂▃▂▂▂▂▁▂▂▁▁▁▁▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇█████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.82814
+wandb:       final_loss 0.30273
+wandb:             loss 0.27734
+wandb:             step 2400
+wandb: terminated_early False
+wandb:      total_steps 2407
+wandb:       total_time 60.00407
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_39 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/bn84nqzq
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184130-bn84nqzq/logs
+Did not converge (loss=0.3027)
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184232-m8lue3y9
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_39
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/m8lue3y9
+wandb: updating run metadata
+wandb: uploading history steps 59-86, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss ██▇▆▆▅▅▅▅▄▄▃▃▃▃▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▂▂▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 21.73469
+wandb:       final_loss 0.09961
+wandb:             loss 0.12158
+wandb:             step 860
+wandb: terminated_early False
+wandb:      total_steps 867
+wandb:       total_time 21.90463
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_39 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/m8lue3y9
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184232-m8lue3y9/logs
+CONVERGED in 21.90s! Setting max_time=43.8s
+    LR=0.063096 (max_time=43.8s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184255-u2oeu10e
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_39
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/u2oeu10e
+wandb: updating run metadata
+wandb: uploading history steps 61-104, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss █▇▆▆▆▆▅▅▅▅▄▄▄▃▃▃▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▂▃▃▃▄▄▄▄▄▄▄▅▅▅▆▆▆▆▇▇▇▇▇▇▇█████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 25.81584
+wandb:       final_loss 0.09961
+wandb:             loss 0.11523
+wandb:             step 1040
+wandb: terminated_early False
+wandb:      total_steps 1043
+wandb:       total_time 25.89004
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_39 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/u2oeu10e
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184255-u2oeu10e/logs
+Converged in 25.89s
+  Stopping LR search (2 LRs past first convergence)
+
+  Summary for max_tokens=39:
+    Tested 4 LR values
+    Converged: 2/4
+    Best: LR=0.100000 in 21.90s
+
+[5/11] MAX_TOKENS=63
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184323-pe9mbjs5
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_63
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/pe9mbjs5
+wandb: updating run metadata
+wandb: uploading history steps 145-161, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▁▁▂▂▂▂▂▂▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▆▆▇▇▇▇█
+wandb:   final_loss ▁
+wandb:         loss ▂▂▂▂▁▁▁▁▁▁▁▁▁▂▁▂▂▂▂▂▃▃▃▃▂▃▃▃▃▃▃▃▄▄▅▆▆▇██
+wandb:         step ▁▁▁▁▂▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 49.9891
+wandb:       final_loss 12.8125
+wandb:             loss 11.625
+wandb:             step 1610
+wandb: terminated_early True
+wandb:      total_steps 1611
+wandb:       total_time 50.02422
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_63 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/pe9mbjs5
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184323-pe9mbjs5/logs
+Terminated early (3x loss increase)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184414-c8aihxwf
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_63
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/c8aihxwf
+wandb: updating run metadata
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇█████
+wandb:   final_loss ▁
+wandb:         loss █▇▇▆▆▆▆▅▅▄▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▂▂▁▂▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 26.48727
+wandb:       final_loss 0.09766
+wandb:             loss 0.10352
+wandb:             step 850
+wandb: terminated_early False
+wandb:      total_steps 852
+wandb:       total_time 26.5501
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_63 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/c8aihxwf
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184414-c8aihxwf/logs
+CONVERGED in 26.55s! Setting max_time=53.1s
+    LR=0.100000 (max_time=53.1s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184442-jogqmtdc
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_63
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/jogqmtdc
+wandb: updating run metadata
+wandb: uploading history steps 48-86, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▂▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss ██▇▆▆▅▅▅▄▄▄▃▃▃▃▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▇▇▇▇▇▇▇▇██
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 26.86108
+wandb:       final_loss 0.09863
+wandb:             loss 0.11328
+wandb:             step 860
+wandb: terminated_early False
+wandb:      total_steps 863
+wandb:       total_time 26.95574
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_63 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/jogqmtdc
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184442-jogqmtdc/logs
+Converged in 26.96s
+  Stopping LR search (2 LRs past first convergence)
+
+  Summary for max_tokens=63:
+    Tested 3 LR values
+    Converged: 2/3
+    Best: LR=0.158489 in 26.55s
+
+[6/11] MAX_TOKENS=99
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184511-9yb1jh1t
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_99
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/9yb1jh1t
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss █▇▇▆▆▄▃▃▃▃▁▁▁▃▃▃▁▄▃▄▂▄▂▃▃▅▅▃▅▄▃▄▅▄▃▂▄▆▆▇
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▇▇▇▇▇▇▇█████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.80986
+wandb:       final_loss 4.46875
+wandb:             loss 4.1875
+wandb:             step 1480
+wandb: terminated_early False
+wandb:      total_steps 1485
+wandb:       total_time 60.01196
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_99 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/9yb1jh1t
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184511-9yb1jh1t/logs
+Did not converge (loss=4.4688)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184612-3hfkz68d
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_99
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/3hfkz68d
+wandb: updating run metadata
+wandb: uploading history steps 74-75, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▆▅▅▅▅▅▄▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇██
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 30.30078
+wandb:       final_loss 0.09619
+wandb:             loss 0.11572
+wandb:             step 750
+wandb: terminated_early False
+wandb:      total_steps 760
+wandb:       total_time 30.69995
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_99 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/3hfkz68d
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184612-3hfkz68d/logs
+CONVERGED in 30.70s! Setting max_time=60.0s
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184644-tcoshg6l
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_99
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/tcoshg6l
+wandb: updating run metadata
+wandb: uploading history steps 37-71, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▆▆▆▅▅▄▄▄▃▃▃▃▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇▇▇█
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 28.66509
+wandb:       final_loss 0.09863
+wandb:             loss 0.1084
+wandb:             step 710
+wandb: terminated_early False
+wandb:      total_steps 711
+wandb:       total_time 28.70596
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_99 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/tcoshg6l
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184644-tcoshg6l/logs
+Converged in 28.71s
+  Stopping LR search (2 LRs past first convergence)
+
+  Summary for max_tokens=99:
+    Tested 3 LR values
+    Converged: 2/3
+    Best: LR=0.100000 in 28.71s
+
+[7/11] MAX_TOKENS=158
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184714-vkm93him
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_158
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/vkm93him
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss ██▇▅▅▄▄▄▄▄▅▄▅▄▄▄▄▄▄▄▄▄▄▄▄▃▃▃▄▃▃▂▂▂▂▂▂▂▂▁
+wandb:         step ▁▁▁▂▂▂▂▂▂▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇█
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.9344
+wandb:       final_loss 1.14844
+wandb:             loss 1.07812
+wandb:             step 1080
+wandb: terminated_early False
+wandb:      total_steps 1082
+wandb:       total_time 60.05166
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_158 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/vkm93him
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184714-vkm93him/logs
+Did not converge (loss=1.1484)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184816-6ikqojbl
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_158
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/6ikqojbl
+wandb: updating run metadata
+wandb: uploading history steps 53-69, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▇▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss █▇▇▇▆▆▆▅▅▅▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 39.04502
+wandb:       final_loss 0.09619
+wandb:             loss 0.10156
+wandb:             step 690
+wandb: terminated_early False
+wandb:      total_steps 691
+wandb:       total_time 39.10314
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_158 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/6ikqojbl
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184816-6ikqojbl/logs
+CONVERGED in 39.10s! Setting max_time=60.0s
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184856-n8epihc3
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_158
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/n8epihc3
+wandb: updating run metadata
+wandb: uploading history steps 53-79, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ███▇▆▅▅▅▄▄▄▄▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 44.31465
+wandb:       final_loss 0.09766
+wandb:             loss 0.10498
+wandb:             step 790
+wandb: terminated_early False
+wandb:      total_steps 793
+wandb:       total_time 44.47405
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_158 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/n8epihc3
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184856-n8epihc3/logs
+Converged in 44.47s
+  Stopping LR search (2 LRs past first convergence)
+
+  Summary for max_tokens=158:
+    Tested 3 LR values
+    Converged: 2/3
+    Best: LR=0.158489 in 39.10s
+
+[8/11] MAX_TOKENS=251
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_184943-1j5su1qp
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_251
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/1j5su1qp
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss █▇▇▇▆▆▆▅▅▅▄▄▄▄▄▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▁▁▁▁▁▂▂▂▂▂
+wandb:         step ▁▁▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇▇████
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.60236
+wandb:       final_loss 1.66406
+wandb:             loss 1.66406
+wandb:             step 750
+wandb: terminated_early False
+wandb:      total_steps 756
+wandb:       total_time 60.07214
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_251 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/1j5su1qp
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_184943-1j5su1qp/logs
+Did not converge (loss=1.6641)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185044-f04ra6ds
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_251
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/f04ra6ds
+wandb: updating run metadata
+wandb: uploading history steps 56-60, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇▇████
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▆▆▅▅▅▅▅▄▄▃▃▃▃▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 47.62156
+wandb:       final_loss 0.09814
+wandb:             loss 0.10107
+wandb:             step 600
+wandb: terminated_early False
+wandb:      total_steps 603
+wandb:       total_time 47.85811
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_251 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/f04ra6ds
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185044-f04ra6ds/logs
+CONVERGED in 47.86s! Setting max_time=60.0s
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185133-bjtyhi05
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_251
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/bjtyhi05
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss █▇▇▆▆▆▅▅▄▄▄▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged True
+wandb:     elapsed_time 59.82956
+wandb:       final_loss 0.09912
+wandb:             loss 0.10498
+wandb:             step 750
+wandb: terminated_early False
+wandb:      total_steps 752
+wandb:       total_time 59.99478
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_251 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/bjtyhi05
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185133-bjtyhi05/logs
+Converged in 59.99s
+  Stopping LR search (2 LRs past first convergence)
+
+  Summary for max_tokens=251:
+    Tested 3 LR values
+    Converged: 2/3
+    Best: LR=0.158489 in 47.86s
+
+[9/11] MAX_TOKENS=398
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185235-xy07r46a
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/xy07r46a
+wandb: uploading data
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss █▇▇▇▆▅▅▅▅▄▄▄▃▃▃▃▂▂▃▂▂▂▂▂▂▁▁▁▁▂▂▂▃▂▂▁▂▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.06481
+wandb:       final_loss 2.29688
+wandb:             loss 2.20312
+wandb:             step 500
+wandb: terminated_early False
+wandb:      total_steps 509
+wandb:       total_time 60.0981
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/xy07r46a
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185235-xy07r46a/logs
+Did not converge (loss=2.2969)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185336-1toj6tko
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/1toj6tko
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▇▆▆▆▅▅▅▄▄▄▃▃▃▃▃▃▃▃▂▂▂▂▂▂▂▂▁▂▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.76173
+wandb:       final_loss 0.24121
+wandb:             loss 0.25781
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 512
+wandb:       total_time 60.01173
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/1toj6tko
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185336-1toj6tko/logs
+Did not converge (loss=0.2412)
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185438-6hk7jdef
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/6hk7jdef
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▆▆▆▆▆▅▅▅▅▅▄▄▄▄▃▃▃▃▃▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.41906
+wandb:       final_loss 0.28711
+wandb:             loss 0.29492
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 516
+wandb:       total_time 60.08942
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/6hk7jdef
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185438-6hk7jdef/logs
+Did not converge (loss=0.2871)
+    LR=0.063096 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185540-9j1m27f0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/9j1m27f0
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▆▆▆▅▅▅▄▄▄▄▄▄▃▃▃▃▃▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 60.097
+wandb:       final_loss 0.38086
+wandb:             loss 0.38086
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 510
+wandb:       total_time 60.09765
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/9j1m27f0
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185540-9j1m27f0/logs
+Did not converge (loss=0.3809)
+    LR=0.039811 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185641-ek63d5n3
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.039811_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/ek63d5n3
+wandb: updating run metadata
+wandb: uploading data
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ███▇▇▆▆▆▆▆▅▅▅▄▄▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.64168
+wandb:       final_loss 0.90625
+wandb:             loss 0.92578
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 514
+wandb:       total_time 60.11289
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.039811_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/ek63d5n3
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185641-ek63d5n3/logs
+Did not converge (loss=0.9062)
+    LR=0.025119 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185743-exopvg56
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.025119_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/exopvg56
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ███▇▇▇▆▆▆▆▆▅▅▅▅▅▄▄▄▄▄▃▃▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.54848
+wandb:       final_loss 1.55469
+wandb:             loss 1.5625
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 514
+wandb:       total_time 60.01857
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.025119_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/exopvg56
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185743-exopvg56/logs
+Did not converge (loss=1.5547)
+    LR=0.015849 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185844-p1y5iey3
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.015849_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/p1y5iey3
+wandb: uploading data
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss ███▇▇▇▆▆▆▆▆▆▅▅▅▅▅▅▄▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▅▆▆▆▆▇▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.49271
+wandb:       final_loss 2.17188
+wandb:             loss 2.15625
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 515
+wandb:       total_time 60.08932
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.015849_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/p1y5iey3
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185844-p1y5iey3/logs
+Did not converge (loss=2.1719)
+    LR=0.010000 (max_time=60.0s)... wandb: setting up run 7hcazf16
+wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_185946-7hcazf16
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.010000_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/7hcazf16
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ███▇▇▇▇▇▇▆▆▆▆▆▅▅▅▅▅▅▄▄▄▄▄▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.46102
+wandb:       final_loss 2.8125
+wandb:             loss 2.8125
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 515
+wandb:       total_time 60.05455
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.010000_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/7hcazf16
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_185946-7hcazf16/logs
+Did not converge (loss=2.8125)
+    LR=0.006310 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190048-u1kcdtf5
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.006310_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/u1kcdtf5
+wandb: uploading history steps 51-51, summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ████▇▇▇▇▇▇▇▆▆▆▆▆▅▅▅▅▅▄▄▄▄▄▄▃▃▃▃▂▂▂▂▂▁▁▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇██
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.32069
+wandb:       final_loss 3.45312
+wandb:             loss 3.45312
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 517
+wandb:       total_time 60.11759
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.006310_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/u1kcdtf5
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190048-u1kcdtf5/logs
+Did not converge (loss=3.4531)
+    LR=0.003981 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190149-6a0fwoz0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.003981_vocab_64_min_5_max_398
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/6a0fwoz0
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ████▇▇▇▆▆▆▆▆▆▆▆▆▅▅▅▅▄▄▄▄▄▄▄▄▃▃▃▃▃▃▃▃▂▂▁▁
+wandb:         step ▁▁▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.65607
+wandb:       final_loss 3.92188
+wandb:             loss 3.9375
+wandb:             step 510
+wandb: terminated_early False
+wandb:      total_steps 513
+wandb:       total_time 60.02418
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.003981_vocab_64_min_5_max_398 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/6a0fwoz0
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190149-6a0fwoz0/logs
+Did not converge (loss=3.9219)
+
+  Summary for max_tokens=398:
+    Tested 10 LR values
+    Converged: 0/10
+
+[10/11] MAX_TOKENS=630
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190251-q3vgxdf6
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/q3vgxdf6
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▆▅▅▅▄▄▄▄▃▄▃▃▃▃▂▂▂▂▂▂▁▂▁▁▁▁▁▂▂
+wandb:         step ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 58.39785
+wandb:       final_loss 2.26562
+wandb:             loss 2.40625
+wandb:             step 330
+wandb: terminated_early False
+wandb:      total_steps 339
+wandb:       total_time 60.01407
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/q3vgxdf6
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190251-q3vgxdf6/logs
+Did not converge (loss=2.2656)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190353-5yjdg3kt
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/5yjdg3kt
+wandb: uploading console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▆▆▆▆▅▅▄▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 60.09459
+wandb:       final_loss 0.80859
+wandb:             loss 0.80859
+wandb:             step 340
+wandb: terminated_early False
+wandb:      total_steps 340
+wandb:       total_time 60.09505
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/5yjdg3kt
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190353-5yjdg3kt/logs
+Did not converge (loss=0.8086)
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190454-2bgkgafr
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/2bgkgafr
+wandb: uploading output.log; uploading wandb-summary.json
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▆▆▆▆▅▅▅▅▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▂▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 58.61466
+wandb:       final_loss 0.78125
+wandb:             loss 0.80859
+wandb:             step 330
+wandb: terminated_early False
+wandb:      total_steps 338
+wandb:       total_time 60.05161
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/2bgkgafr
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190454-2bgkgafr/logs
+Did not converge (loss=0.7812)
+    LR=0.063096 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190556-arh681xc
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/arh681xc
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▇▆▆▆▅▅▅▅▅▄▄▄▄▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.71031
+wandb:       final_loss 0.90234
+wandb:             loss 0.89453
+wandb:             step 340
+wandb: terminated_early False
+wandb:      total_steps 342
+wandb:       total_time 60.07895
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.063096_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/arh681xc
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190556-arh681xc/logs
+Did not converge (loss=0.9023)
+    LR=0.039811 (max_time=60.0s)... wandb: setting up run be74vwc4
+wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190658-be74vwc4
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.039811_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/be74vwc4
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▆▆▆▆▅▅▅▅▄▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 58.67479
+wandb:       final_loss 1.65625
+wandb:             loss 1.69531
+wandb:             step 330
+wandb: terminated_early False
+wandb:      total_steps 338
+wandb:       total_time 60.10277
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.039811_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/be74vwc4
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190658-be74vwc4/logs
+Did not converge (loss=1.6562)
+    LR=0.025119 (max_time=60.0s)... wandb: setting up run s42l4002
+wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190759-s42l4002
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.025119_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/s42l4002
+wandb: updating run metadata
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▇▆▆▆▆▅▅▅▅▄▄▄▄▄▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 60.12789
+wandb:       final_loss 2.28125
+wandb:             loss 2.28125
+wandb:             step 340
+wandb: terminated_early False
+wandb:      total_steps 340
+wandb:       total_time 60.1286
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.025119_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/s42l4002
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190759-s42l4002/logs
+Did not converge (loss=2.2812)
+    LR=0.015849 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_190901-kn3o7taf
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.015849_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/kn3o7taf
+wandb: updating run metadata; uploading history steps 25-34, summary
+wandb: uploading summary, console lines 0-0
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ███▇▇▇▆▆▆▆▆▅▅▅▅▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▁▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.96278
+wandb:       final_loss 2.71875
+wandb:             loss 2.73438
+wandb:             step 340
+wandb: terminated_early False
+wandb:      total_steps 341
+wandb:       total_time 60.14801
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.015849_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/kn3o7taf
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_190901-kn3o7taf/logs
+Did not converge (loss=2.7188)
+    LR=0.010000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_191003-d2l5q4oh
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.010000_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/d2l5q4oh
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ██▇▇▇▇▇▆▆▆▆▅▅▅▅▄▄▄▄▃▃▃▃▃▂▂▂▂▂▂▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 58.64154
+wandb:       final_loss 3.23438
+wandb:             loss 3.25
+wandb:             step 330
+wandb: terminated_early False
+wandb:      total_steps 338
+wandb:       total_time 60.07463
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.010000_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/d2l5q4oh
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_191003-d2l5q4oh/logs
+Did not converge (loss=3.2344)
+    LR=0.006310 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_191105-mdynzomv
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.006310_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/mdynzomv
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss █████▇▇▆▆▆▆▆▆▆▆▆▆▅▅▅▄▄▄▄▃▃▃▂▂▂▂▁▁▁
+wandb:         step ▁▁▁▂▂▂▂▂▃▃▃▃▄▄▄▄▄▅▅▅▅▅▆▆▆▆▇▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 59.985
+wandb:       final_loss 3.65625
+wandb:             loss 3.65625
+wandb:             step 340
+wandb: terminated_early False
+wandb:      total_steps 341
+wandb:       total_time 60.12272
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.006310_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/mdynzomv
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_191105-mdynzomv/logs
+Did not converge (loss=3.6562)
+    LR=0.003981 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_191206-qojifdv4
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.003981_vocab_64_min_5_max_630
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/qojifdv4
+wandb: uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:   final_loss ▁
+wandb:         loss ███▇██▇▇▇▇▇▇▇▇▇▇▆▆▆▅▅▃▅▃▃▃▃▃▂▂▂▁▁
+wandb:         step ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▄▅▅▅▅▅▆▆▆▆▆▇▇▇▇███
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 58.46439
+wandb:       final_loss 4.03125
+wandb:             loss 4.03125
+wandb:             step 330
+wandb: terminated_early False
+wandb:      total_steps 339
+wandb:       total_time 60.06439
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.003981_vocab_64_min_5_max_630 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/qojifdv4
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_191206-qojifdv4/logs
+Did not converge (loss=4.0312)
+
+  Summary for max_tokens=630:
+    Tested 10 LR values
+    Converged: 0/10
+
+[11/11] MAX_TOKENS=999
+--------------------------------------------------------------------------------
+    LR=0.251189 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_191308-zaamparj
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_999
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/zaamparj
+wandb: updating run metadata
+wandb: uploading output.log; uploading config.yaml
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▂▂▂▃▃▃▄▄▅▅▅▆▆▆▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss █▇▇▆▆▆▅▅▄▄▃▃▃▂▂▂▁▁▂▁▁
+wandb:         step ▁▁▂▂▂▃▃▃▄▄▅▅▅▆▆▆▇▇▇██
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 57.51714
+wandb:       final_loss 2.5
+wandb:             loss 2.53125
+wandb:             step 210
+wandb: terminated_early False
+wandb:      total_steps 219
+wandb:       total_time 60.00269
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.251189_vocab_64_min_5_max_999 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/zaamparj
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_191308-zaamparj/logs
+Did not converge (loss=2.5000)
+    LR=0.158489 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_191410-rwfsfx37
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_999
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/rwfsfx37
+wandb: 
+wandb: Run history:
+wandb: elapsed_time ▁▁▂▂▂▃▃▃▄▄▄▅▅▆▆▆▇▇▇██
+wandb:   final_loss ▁
+wandb:         loss █▇▇▇▆▆▅▅▅▄▄▄▃▃▃▂▂▂▂▁▁
+wandb:         step ▁▁▂▂▂▃▃▃▄▄▅▅▅▆▆▆▇▇▇██
+wandb:  total_steps ▁
+wandb:   total_time ▁
+wandb: 
+wandb: Run summary:
+wandb:        converged False
+wandb:     elapsed_time 58.16584
+wandb:       final_loss 1.5
+wandb:             loss 1.57812
+wandb:             step 210
+wandb: terminated_early False
+wandb:      total_steps 217
+wandb:       total_time 60.05722
+wandb: 
+wandb: 🚀 View run fast_batch_16_pert_8_gpus_8_lr_0.158489_vocab_64_min_5_max_999 at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/rwfsfx37
+wandb: ⭐️ View project at: https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20251126_191410-rwfsfx37/logs
+Did not converge (loss=1.5000)
+    LR=0.100000 (max_time=60.0s)... wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /workspace/zero_order_rnn/wandb/run-20251126_191511-aarw0w89
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fast_batch_16_pert_8_gpus_8_lr_0.100000_vocab_64_min_5_max_999
+wandb: ⭐️ View project at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn
+wandb: 🚀 View run at https://wandb.ai/stopthrowingrocks-stanford-university/zero_order_rnn/runs/aarw0w89
