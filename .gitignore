@@ -5,3 +5,4 @@ __pycache__/
 *.ignore.*
 wandb
 rnn_checkpoints
+*.log
