@@ -741,6 +741,7 @@ def main():
     #####################################################################################
 
     try:
+        print(args.local_rank)
         torch.cuda.set_device(args.local_rank)
     except RuntimeError as e:
         print(f"Error metadata. Local rank: {args.local_rank}, CUDA Available: {torch.cuda.is_available()}, Device Count: {torch.cuda.device_count()}, GPU Name 0: {torch.cuda.get_device_name(0)}")
