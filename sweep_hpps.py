@@ -148,10 +148,12 @@ def adam_step(model, embed, x_ids, y_ids, pad_id, optimizer):
 def test_spsa_config(
     vocab_size, seq_length, hidden_size, num_heads,
     learning_rate, num_perturbations, batch_size,
-    num_steps, device
+    max_time, num_accurate_samples, device
 ):
+    """Test a single SPSA hyperparameter configuration with early stopping."""
+    import time
+
     epsilon = learning_rate
-    """Test a single SPSA hyperparameter configuration."""
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
     SEP = vocab_size - 3
@@ -174,8 +176,11 @@ def test_spsa_config(
     # Training loop
     losses = []
     accuracies = []
+    start_time = time.time()
+    converged = False
 
-    for step in range(num_steps):
+    step = 0
+    while time.time() - start_time < max_time:
         # Generate batch
         x_ids, y_ids = generate_reverse_batch(batch_size, seq_length, vocab_size, device)
 
@@ -186,23 +191,47 @@ def test_spsa_config(
         )
 
         losses.append(loss)
+        step += 1
 
-        # Compute accuracy periodically
-        if (step + 1) % 50 == 0:
+        # Check for convergence: test on num_accurate_samples random samples
+        if step % 10 == 0:  # Check every 10 steps
+            all_correct = True
+            for _ in range(num_accurate_samples):
+                # Generate test sample
+                test_x, test_y = generate_reverse_batch(1, seq_length, vocab_size, device)
+
+                with torch.no_grad():
+                    x_emb = embed(test_x)
+                    logits, _, _ = model(x_emb, require_gradients=False)
+                    accuracy = compute_reverse_accuracy(logits, test_y, SEP, PAD)
+
+                if accuracy < 1.0:  # Not 100% accurate
+                    all_correct = False
+                    break
+
+            if all_correct:
+                converged = True
+                break
+
+        # Compute accuracy on current batch periodically for logging
+        if step % 50 == 0:
             with torch.no_grad():
                 x_emb = embed(x_ids)
                 logits, _, _ = model(x_emb, require_gradients=False)
                 accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
                 accuracies.append(accuracy)
 
-    return losses, accuracies
+    elapsed_time = time.time() - start_time
+    return losses, accuracies, converged, elapsed_time, step
 
 
 def test_adam_config(
     vocab_size, seq_length, hidden_size, num_heads,
-    learning_rate, batch_size, num_steps, device
+    learning_rate, batch_size, max_time, num_accurate_samples, device
 ):
-    """Test a single Adam hyperparameter configuration."""
+    """Test a single Adam hyperparameter configuration with early stopping."""
+    import time
+
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
     SEP = vocab_size - 3
@@ -231,8 +260,11 @@ def test_adam_config(
     # Training loop
     losses = []
     accuracies = []
+    start_time = time.time()
+    converged = False
 
-    for step in range(num_steps):
+    step = 0
+    while time.time() - start_time < max_time:
         # Generate batch
         x_ids, y_ids = generate_reverse_batch(batch_size, seq_length, vocab_size, device)
 
@@ -240,16 +272,38 @@ def test_adam_config(
         loss = adam_step(model, embed, x_ids, y_ids, PAD, optimizer)
 
         losses.append(loss)
+        step += 1
 
-        # Compute accuracy periodically
-        if (step + 1) % 50 == 0:
+        # Check for convergence: test on num_accurate_samples random samples
+        if step % 10 == 0:  # Check every 10 steps
+            all_correct = True
+            for _ in range(num_accurate_samples):
+                # Generate test sample
+                test_x, test_y = generate_reverse_batch(1, seq_length, vocab_size, device)
+
+                with torch.no_grad():
+                    x_emb = embed(test_x)
+                    logits, _, _ = model(x_emb, require_gradients=False)
+                    accuracy = compute_reverse_accuracy(logits, test_y, SEP, PAD)
+
+                if accuracy < 1.0:  # Not 100% accurate
+                    all_correct = False
+                    break
+
+            if all_correct:
+                converged = True
+                break
+
+        # Compute accuracy on current batch periodically for logging
+        if step % 50 == 0:
             with torch.no_grad():
                 x_emb = embed(x_ids)
                 logits, _, _ = model(x_emb, require_gradients=False)
                 accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
                 accuracies.append(accuracy)
 
-    return losses, accuracies
+    elapsed_time = time.time() - start_time
+    return losses, accuracies, converged, elapsed_time, step
 
 
 def main():
@@ -258,7 +312,8 @@ def main():
     parser.add_argument('--seq_length', type=int, default=5)
     parser.add_argument('--hidden_size', type=int, default=128)
     parser.add_argument('--num_heads', type=int, default=4)
-    parser.add_argument('--num_steps', type=int, default=500)
+    parser.add_argument('--max_time', type=float, default=5.0, help='Maximum time per configuration (seconds)')
+    parser.add_argument('--num_accurate_samples', type=int, default=100, help='Number of samples to test for 100%% accuracy')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--adam-only', action='store_true', help='Only run Adam sweep')
@@ -279,7 +334,8 @@ def main():
     print("=" * 80)
     print(f"Task: Reverse sequences of length {args.seq_length}")
     print(f"Vocab size: {args.vocab_size}, Hidden size: {args.hidden_size}")
-    print(f"Testing {args.num_steps} steps per configuration")
+    print(f"Max time per config: {args.max_time}s")
+    print(f"Convergence criterion: 100% accuracy on {args.num_accurate_samples} samples")
     print(f"Running: {'SPSA ' if run_spsa else ''}{'Adam' if run_adam else ''}")
     print("=" * 80)
     print()
@@ -313,25 +369,29 @@ def main():
         for config_idx, (lr, n_pert, bs) in enumerate(spsa_configs, 1):
             print(f"[{config_idx}/{len(spsa_configs)}] Testing SPSA: LR={lr:.6f}, Pert={n_pert}, Batch={bs}")
 
-            losses, accuracies = test_spsa_config(
+            losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
                 args.vocab_size, args.seq_length, args.hidden_size, args.num_heads,
-                lr, n_pert, bs, args.num_steps, args.device
+                lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.device
             )
 
             # Analyze results
-            initial_loss = float(np.mean(losses[:10]))
-            final_loss = float(np.mean(losses[-50:]))
-            min_loss = float(min(losses))
+            initial_loss = float(np.mean(losses[:10]) if len(losses) >= 10 else np.mean(losses))
+            final_loss = float(np.mean(losses[-50:]) if len(losses) >= 50 else np.mean(losses))
+            min_loss = float(min(losses)) if losses else float('inf')
             loss_improvement = initial_loss - final_loss
             final_acc = float(accuracies[-1] if accuracies else 0.0)
 
-            print(f"  Initial: {initial_loss:.4f}, Final: {final_loss:.4f}, "
-                  f"Min: {min_loss:.4f}, Improve: {loss_improvement:.4f}, Acc: {final_acc:.4f}")
+            status = "CONVERGED" if converged else "TIMEOUT"
+            print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
+                  f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
 
             spsa_results.append({
                 'lr': lr,
                 'num_perturbations': n_pert,
                 'batch_size': bs,
+                'converged': converged,
+                'elapsed_time': elapsed_time,
+                'num_steps': num_steps,
                 'initial_loss': initial_loss,
                 'final_loss': final_loss,
                 'min_loss': min_loss,
@@ -365,29 +425,32 @@ def main():
 
         adam_results = []
 
-        for lr, bs, name in adam_configs:
-            print(f"\nTesting Adam: {name}")
-            print(f"  LR={lr}, Batch={bs}")
+        for config_idx, (lr, bs, name) in enumerate(adam_configs, 1):
+            print(f"[{config_idx}/{len(adam_configs)}] Testing Adam: {name} | LR={lr}, Batch={bs}")
 
-            losses, accuracies = test_adam_config(
+            losses, accuracies, converged, elapsed_time, num_steps = test_adam_config(
                 args.vocab_size, args.seq_length, args.hidden_size, args.num_heads,
-                lr, bs, args.num_steps, args.device
+                lr, bs, args.max_time, args.num_accurate_samples, args.device
             )
 
             # Analyze results
-            initial_loss = float(np.mean(losses[:10]))
-            final_loss = float(np.mean(losses[-50:]))
-            min_loss = float(min(losses))
+            initial_loss = float(np.mean(losses[:10]) if len(losses) >= 10 else np.mean(losses))
+            final_loss = float(np.mean(losses[-50:]) if len(losses) >= 50 else np.mean(losses))
+            min_loss = float(min(losses)) if losses else float('inf')
             loss_improvement = initial_loss - final_loss
             final_acc = float(accuracies[-1] if accuracies else 0.0)
 
-            print(f"  Initial: {initial_loss:.4f}, Final: {final_loss:.4f}, "
-                  f"Min: {min_loss:.4f}, Improve: {loss_improvement:.4f}, Acc: {final_acc:.4f}")
+            status = "CONVERGED" if converged else "TIMEOUT"
+            print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
+                  f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
 
             adam_results.append({
                 'name': name,
                 'lr': lr,
                 'batch_size': bs,
+                'converged': converged,
+                'elapsed_time': elapsed_time,
+                'num_steps': num_steps,
                 'initial_loss': initial_loss,
                 'final_loss': final_loss,
                 'min_loss': min_loss,
