@@ -148,7 +148,7 @@ def adam_step(model, embed, x_ids, y_ids, pad_id, optimizer):
 def test_spsa_config(
     vocab_size, seq_length, hidden_size, num_heads,
     learning_rate, num_perturbations, batch_size,
-    max_time, num_accurate_samples, device
+    max_time, num_accurate_samples, max_loss, device
 ):
     """Test a single SPSA hyperparameter configuration with early stopping."""
     import time
@@ -192,6 +192,9 @@ def test_spsa_config(
 
         losses.append(loss)
         step += 1
+
+        if loss >= max_loss:
+            break
 
         # Check for convergence: test on num_accurate_samples random samples
         if step % 10 == 0:  # Check every 10 steps
@@ -313,6 +316,7 @@ def main():
     parser.add_argument('--hidden_size', type=int, default=128)
     parser.add_argument('--num_heads', type=int, default=4)
     parser.add_argument('--max_time', type=float, default=10.0, help='Maximum time per configuration (seconds)')
+    parser.add_argument('--max_loss', type=float, default=10.0, help='Maximum loss before quitting run')
     parser.add_argument('--num_accurate_samples', type=int, default=100, help='Number of samples to test for 100%% accuracy')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--seed', type=int, default=42)
@@ -371,7 +375,7 @@ def main():
 
             losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
                 args.vocab_size, args.seq_length, args.hidden_size, args.num_heads,
-                lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.device
+                lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.max_loss, args.device,
             )
 
             # Analyze results
