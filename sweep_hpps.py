@@ -154,7 +154,6 @@ def test_spsa_config(
     import time
 
     epsilon = learning_rate
-    device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
     SEP = vocab_size - 3
     PAD = vocab_size - 1
@@ -333,6 +332,9 @@ def main():
     run_adam = not args.spsa_only
     run_spsa = not args.adam_only
 
+    # Set device
+    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+
     print("=" * 80)
     print("HYPERPARAMETER SWEEP: SPSA vs Adam")
     print("=" * 80)
@@ -375,7 +377,8 @@ def main():
 
             losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
                 args.vocab_size, args.seq_length, args.hidden_size, args.num_heads,
-                lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.max_loss, args.device,
+                lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.max_loss,
+                device,
             )
 
             # Analyze results
