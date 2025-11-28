@@ -312,7 +312,7 @@ def main():
     parser.add_argument('--seq_length', type=int, default=5)
     parser.add_argument('--hidden_size', type=int, default=128)
     parser.add_argument('--num_heads', type=int, default=4)
-    parser.add_argument('--max_time', type=float, default=5.0, help='Maximum time per configuration (seconds)')
+    parser.add_argument('--max_time', type=float, default=10.0, help='Maximum time per configuration (seconds)')
     parser.add_argument('--num_accurate_samples', type=int, default=100, help='Number of samples to test for 100%% accuracy')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--seed', type=int, default=42)
