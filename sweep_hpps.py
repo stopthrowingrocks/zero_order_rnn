@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
 Hyperparameter sweep for SPSA and Adam optimizers on reverse task.
-Outputs results to hpps_spsa.json and hpps_adam.json.
+Outputs results to sweep_hpps_spsa_results.csv and hpps_spsa.json (best config).
 """
 import argparse
 import json
+import csv
 import numpy as np
 import torch
 import torch.nn as nn
@@ -190,6 +191,7 @@ def test_spsa_config(
         x_ids, y_ids = generate_reverse_batch(batch_size, seq_length, vocab_size, device)
 
         # SPSA optimization step
+        print("spsa step")
         loss = spsa_step(
             model, embed, x_ids, y_ids, PAD,
             learning_rate, epsilon, num_perturbations
@@ -391,7 +393,15 @@ def main():
             loss_improvement = initial_loss - final_loss
             final_acc = float(accuracies[-1] if accuracies else 0.0)
 
-            status = "CONVERGED" if converged else "TIMEOUT"
+            # Determine status
+            timed_out = elapsed_time >= args.max_time - 0.01  # Small tolerance for timing
+            if converged:
+                status = "CONVERGED"
+            elif timed_out:
+                status = "TIMEOUT (not converged)"
+            else:
+                status = "STOPPED (loss >= max_loss)"
+
             print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
                   f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
 
@@ -410,10 +420,34 @@ def main():
                 'losses': [float(l) for l in losses]
             })
 
-        # Save SPSA results
-        with open('hpps_spsa.json', 'w') as f:
-            json.dump(spsa_results, f, indent=2)
-        print(f"\n✓ SPSA results saved to hpps_spsa.json")
+        # Save all SPSA results to CSV
+        csv_filename = 'sweep_hpps_spsa_results.csv'
+        with open(csv_filename, 'w', newline='') as f:
+            fieldnames = ['lr', 'num_perturbations', 'batch_size', 'converged', 'elapsed_time',
+                         'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for result in spsa_results:
+                # Write row without 'losses' field
+                row = {k: v for k, v in result.items() if k != 'losses'}
+                writer.writerow(row)
+        print(f"\n✓ SPSA results saved to {csv_filename}")
+
+        # Find fastest converging configuration
+        converged_results = [r for r in spsa_results if r['converged']]
+        if converged_results:
+            best_result = min(converged_results, key=lambda r: r['elapsed_time'])
+
+            # Save best configuration to JSON
+            with open('hpps_spsa.json', 'w') as f:
+                json.dump(best_result, f, indent=2)
+
+            print(f"\n✓ Best SPSA config saved to hpps_spsa.json")
+            print(f"  LR={best_result['lr']:.6f}, Pert={best_result['num_perturbations']}, "
+                  f"Batch={best_result['batch_size']}")
+            print(f"  Converged in {best_result['elapsed_time']:.2f}s ({best_result['num_steps']} steps)")
+        else:
+            print(f"\n⚠ No SPSA configurations converged - no hpps_spsa.json written")
 
     # Adam hyperparameter grid
     if run_adam:
@@ -450,7 +484,10 @@ def main():
             loss_improvement = initial_loss - final_loss
             final_acc = float(accuracies[-1] if accuracies else 0.0)
 
-            status = "CONVERGED" if converged else "TIMEOUT"
+            # Determine status
+            timed_out = elapsed_time >= args.max_time - 0.01  # Small tolerance for timing
+            status = "CONVERGED" if converged else "TIMEOUT (not converged)"
+
             print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
                   f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
 
@@ -469,10 +506,33 @@ def main():
                 'losses': [float(l) for l in losses]
             })
 
-        # Save Adam results
-        with open('hpps_adam.json', 'w') as f:
-            json.dump(adam_results, f, indent=2)
-        print(f"\n✓ Adam results saved to hpps_adam.json")
+        # Save all Adam results to CSV
+        csv_filename = 'sweep_hpps_adam_results.csv'
+        with open(csv_filename, 'w', newline='') as f:
+            fieldnames = ['name', 'lr', 'batch_size', 'converged', 'elapsed_time',
+                         'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for result in adam_results:
+                # Write row without 'losses' field
+                row = {k: v for k, v in result.items() if k != 'losses'}
+                writer.writerow(row)
+        print(f"\n✓ Adam results saved to {csv_filename}")
+
+        # Find fastest converging configuration
+        converged_results = [r for r in adam_results if r['converged']]
+        if converged_results:
+            best_result = min(converged_results, key=lambda r: r['elapsed_time'])
+
+            # Save best configuration to JSON
+            with open('hpps_adam.json', 'w') as f:
+                json.dump(best_result, f, indent=2)
+
+            print(f"\n✓ Best Adam config saved to hpps_adam.json")
+            print(f"  {best_result['name']}: LR={best_result['lr']}, Batch={best_result['batch_size']}")
+            print(f"  Converged in {best_result['elapsed_time']:.2f}s ({best_result['num_steps']} steps)")
+        else:
+            print(f"\n⚠ No Adam configurations converged - no hpps_adam.json written")
 
     print("\n" + "=" * 80)
     print("SWEEP COMPLETE")
