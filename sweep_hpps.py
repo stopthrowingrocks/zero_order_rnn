@@ -191,7 +191,6 @@ def test_spsa_config(
         x_ids, y_ids = generate_reverse_batch(batch_size, seq_length, vocab_size, device)
 
         # SPSA optimization step
-        print("spsa step")
         loss = spsa_step(
             model, embed, x_ids, y_ids, PAD,
             learning_rate, epsilon, num_perturbations
