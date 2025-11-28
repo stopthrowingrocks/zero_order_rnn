@@ -56,120 +56,160 @@ def compute_reverse_loss(logits, targets, pad_id):
     return loss
 
 
-def apply_probe(param_list, epsilon, seed):
-    """Apply a random perturbation to parameters using a specific seed."""
-    rng_state = torch.get_rng_state()
-    torch.manual_seed(seed)
+def generate_perturbation(ref: torch.Tensor, scale: float, distribution: str, seed: int) -> torch.Tensor:
+    """Generate a perturbation with unit magnitude, scaled by scale."""
+    g = torch.Generator(device=ref.device).manual_seed(int(seed))
+    if distribution == "rad":
+        z = torch.zeros_like(ref).bernoulli_(0.5, generator=g).mul_(2).sub_(1).mul_(scale)
+    elif distribution == "normal":
+        z = torch.randn_like(ref, generator=g) * scale
+    else:  # uniform
+        z = (torch.rand_like(ref, generator=g) * 2 - 1) * scale
+    return z
 
-    for p in param_list:
-        probe = torch.randn_like(p)
-        p.data.add_(probe, alpha=epsilon)
 
-    torch.set_rng_state(rng_state)
-
-
-def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_perturbations, rank, world_size):
+def apply_probe(params, scale, base_seed, distn, rolling_sum_weighted_probe=None, coeff=None):
     """
-    Perform one distributed SPSA step following the pattern from distributed_rge.py:
-    1. Broadcast parameters from rank 0
-    2. Scatter seeds to all ranks
-    3. Each rank computes local perturbations (±ε), potentially multiple times
-    4. Accumulate weighted gradients in rolling buffer
-    5. Reduce rolling buffer to rank 0
-    6. Only rank 0 updates parameters
+    θ ← θ + scale * δ     where δ has unit magnitude (Rademacher or Normal).
+
+    If `rolling_sum_weighted_probe` and `coeff` are provided we accumulate
+        rolling_sum_weighted_probe[i] += coeff * δ
+    so a one-shot gradient step can be taken later.
+    """
+    for i, p in enumerate(params):
+        delta = generate_perturbation(p, 1.0, distn, base_seed + i)  # unit δ
+        p.data.add_(delta, alpha=scale)                              # fused add
+
+        if rolling_sum_weighted_probe is not None and coeff is not None:
+            rolling_sum_weighted_probe[i].add_(delta, alpha=coeff)
+
+
+def distributed_spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_perturbations, rank, world_size, cache_roll=False):
+    """
+    Perform one distributed SPSA step following distributed_rge.py:dist_cdrge_step exactly.
 
     Args:
-        num_perturbations: Total number of perturbations. Each rank handles num_perturbations // world_size
+        cache_roll: If False (default), only communicate scalar losses (efficient).
+                    If True, use rolling buffer (communicates parameter-sized tensors).
     """
+    # 0. setup -----------------------------------------------------------------
+    distributed = dist.is_available() and dist.is_initialized()
     param_list = list(model.parameters()) + list(embed.parameters())
     device = param_list[0].device
+    per_rank = num_perturbations // world_size
+    if per_rank == 0:
+        per_rank = 1
+    n_total = per_rank * world_size
+    distn = "normal"
 
-    # Calculate perturbations per rank
-    perturbations_per_rank = num_perturbations // world_size
-    if perturbations_per_rank == 0:
-        perturbations_per_rank = 1
+    # Validate that x_ids and y_ids are present on all ranks
+    assert x_ids is not None, f"Rank {rank}: x_ids is None"
+    assert y_ids is not None, f"Rank {rank}: y_ids is None"
+    assert x_ids.numel() > 0, f"Rank {rank}: x_ids is empty"
+    assert y_ids.numel() > 0, f"Rank {rank}: y_ids is empty"
+    assert x_ids.shape[0] > 0, f"Rank {rank}: x_ids has zero batch size"
+    assert y_ids.shape[0] > 0, f"Rank {rank}: y_ids has zero batch size"
+    assert x_ids.device == device, f"Rank {rank}: x_ids on wrong device ({x_ids.device} vs {device})"
+    assert y_ids.device == device, f"Rank {rank}: y_ids on wrong device ({y_ids.device} vs {device})"
 
-    total_perturbations = perturbations_per_rank * world_size
+    # 1. optional rolling buffer -----------------------------------------------
+    rolling_sum_weighted_probe = (
+        [torch.zeros_like(p.data) for p in param_list] if cache_roll else None
+    )
 
-    # 1. Broadcast θ from rank 0 to all ranks
-    if world_size > 1:
+    # 2. broadcast θ ------------------------------------------------------------
+    if distributed and world_size > 1:
         for p in param_list:
             dist.broadcast(p.data, src=0)
 
-    # 2. Initialize rolling buffer for weighted probes
-    rolling_sum_weighted_probe = [torch.zeros_like(p.data) for p in param_list]
-
-    # 3. Each rank computes multiple perturbations
-    all_losses = []
-    for pert_idx in range(perturbations_per_rank):
-        # Scatter seeds for this perturbation
-        seeds_local = torch.zeros(1, dtype=torch.int32, device=device)
-        if rank == 0:
-            full_seeds = torch.randint(0, 2**31 - 1, (world_size,), dtype=torch.int32, device=device)
-            chunks = list(full_seeds.chunk(world_size, dim=0))
-        else:
-            full_seeds = torch.empty(world_size, dtype=torch.int32, device=device)
-            chunks = None
-
-        if world_size > 1:
-            dist.scatter(seeds_local, chunks, src=0)
-        else:
-            seeds_local.copy_(full_seeds[:1])
-
-        local_seed = int(seeds_local[0].item())
-
-        # 4. Compute local perturbation (central difference)
-        with torch.no_grad():
-            # +ε
-            apply_probe(param_list, +epsilon, local_seed)
-            x_emb = embed(x_ids)
-            logits_plus, _, _ = model(x_emb, require_gradients=False)
-            loss_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
-
-            # -ε (apply -2ε to go from +ε to -ε)
-            apply_probe(param_list, -2.0 * epsilon, local_seed)
-            x_emb = embed(x_ids)
-            logits_minus, _, _ = model(x_emb, require_gradients=False)
-            loss_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
-
-            # Compute gradient coefficient and restore parameters
-            coef = (loss_plus - loss_minus) / (2.0 * total_perturbations)
-            restore_coeff = -learning_rate * coef  # GD direction with learning rate
-
-            # Restore to original (+ε) AND accumulate weighted probe in rolling buffer
-            rng_state = torch.get_rng_state()
-            torch.manual_seed(local_seed)
-            for i, p in enumerate(param_list):
-                probe = torch.randn_like(p)
-                p.data.add_(probe, alpha=epsilon)  # restore
-                rolling_sum_weighted_probe[i].add_(probe, alpha=restore_coeff)  # accumulate
-            torch.set_rng_state(rng_state)
-
-            all_losses.append((loss_plus + loss_minus) / 2.0)
-
-    # 5. Reduce rolling buffer to rank 0
-    if world_size > 1:
-        for buf in rolling_sum_weighted_probe:
-            dist.reduce(buf, dst=0, op=dist.ReduceOp.SUM)
-
-    # 6. Only rank 0 applies the accumulated update
+    # 3. scatter seeds ----------------------------------------------------------
+    seeds_local = torch.zeros(per_rank, dtype=torch.int32, device=device)
     if rank == 0:
-        with torch.no_grad():
-            for p, acc in zip(param_list, rolling_sum_weighted_probe):
-                p.data.add_(acc)
+        full_seeds = torch.randint(0, 2**31 - 1, (n_total,),
+                                   dtype=torch.int32, device=device)
+        chunks = list(full_seeds.chunk(world_size, dim=0))
+    else:
+        full_seeds = torch.empty(n_total, dtype=torch.int32, device=device)
+        chunks = None
+    if distributed and world_size > 1:
+        dist.scatter(seeds_local, chunks, src=0)
+    else:
+        seeds_local.copy_(full_seeds)
 
-    # 7. Broadcast updated parameters from rank 0 to all ranks
-    if world_size > 1:
+    # 4. local ±ε evaluations ---------------------------------------------------
+    loss_pairs_local = torch.zeros(per_rank, 2, dtype=torch.float32, device=device)
+
+    for m in range(per_rank):
+        seed_m = int(seeds_local[m].item())
+
+        # +ε
+        apply_probe(param_list, +epsilon, seed_m, distn)
+        x_emb = embed(x_ids)
+        logits_plus, _, _ = model(x_emb, require_gradients=False)
+        L_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
+
+        # −ε
+        apply_probe(param_list, -2.0 * epsilon, seed_m, distn)
+        x_emb = embed(x_ids)
+        logits_minus, _, _ = model(x_emb, require_gradients=False)
+        L_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
+
+        # coef and restore (+ε again)
+        coef = (L_plus - L_minus) / (2.0 * n_total)
+        restore_coeff = -coef                           # GD direction
+        apply_probe(
+            param_list, +epsilon, seed_m, distn,
+            rolling_sum_weighted_probe=rolling_sum_weighted_probe,
+            coeff=restore_coeff,
+        )
+
+        loss_pairs_local[m, 0] = L_plus
+        loss_pairs_local[m, 1] = L_minus
+
+    # 5. gather losses (logging only) ------------------------------------------
+    if distributed and world_size > 1:
+        gather_buf = (
+            [torch.empty_like(loss_pairs_local) for _ in range(world_size)]
+            if rank == 0 else None
+        )
+        dist.gather(loss_pairs_local, gather_buf, dst=0)
+        if rank == 0:
+            loss_pairs_full = torch.cat(gather_buf, dim=0)
+    else:
+        loss_pairs_full = loss_pairs_local
+
+    # 6. parameter update -------------------------------------------------------
+    if cache_roll:
+        if distributed and world_size > 1:
+            for buf in rolling_sum_weighted_probe:
+                dist.reduce(buf, dst=0, op=dist.ReduceOp.SUM)
+        if rank == 0:
+            for p, acc in zip(param_list, rolling_sum_weighted_probe):
+                p.data.add_(acc, alpha=learning_rate)      # apply LR here!
+    else:  # fallback (slow loop)
+        if rank == 0:
+            if world_size == 1:
+                full_seeds = seeds_local.clone()
+            for i in range(n_total):
+                coef = (loss_pairs_full[i, 0] - loss_pairs_full[i, 1]) \
+                       / (2.0 * n_total)
+                seed_i = int(full_seeds[i].item())
+                apply_probe(param_list, -learning_rate * coef.item(), seed_i, distn)
+
+    # 7. broadcast updated parameters -------------------------------------------
+    if distributed and world_size > 1:
         for p in param_list:
             dist.broadcast(p.data, src=0)
 
-    # 8. Barrier to ensure all ranks are synchronized
-    if world_size > 1:
+    # 8. barrier ----------------------------------------------------------------
+    if distributed and world_size > 1:
         dist.barrier()
 
-    # Return average loss for logging
-    current_loss = sum(all_losses) / len(all_losses) if all_losses else 0.0
-    return current_loss
+    # 9. return loss ------------------------------------------------------------
+    mean_loss = float(
+        (loss_pairs_full if rank == 0 else loss_pairs_local).mean().item()
+    )
+    return mean_loss
 
 
 def train_with_early_stop_distributed(batch_size, perturbations, num_gpus, learning_rate, vocab_size,
