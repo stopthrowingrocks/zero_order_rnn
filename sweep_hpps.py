@@ -172,6 +172,12 @@ def test_spsa_config(
         dtype=torch.bfloat16
     )
 
+    # Generate test samples once at the beginning
+    test_samples = []
+    for _ in range(num_accurate_samples):
+        test_x, test_y = generate_reverse_batch(1, seq_length, vocab_size, device)
+        test_samples.append((test_x, test_y))
+
     # Training loop
     losses = []
     accuracies = []
@@ -195,13 +201,10 @@ def test_spsa_config(
         if loss >= max_loss:
             break
 
-        # Check for convergence: test on num_accurate_samples random samples
+        # Check for convergence: test on pre-generated test samples
         if step % 10 == 0:  # Check every 10 steps
             all_correct = True
-            for _ in range(num_accurate_samples):
-                # Generate test sample
-                test_x, test_y = generate_reverse_batch(1, seq_length, vocab_size, device)
-
+            for test_x, test_y in test_samples:
                 with torch.no_grad():
                     x_emb = embed(test_x)
                     logits, _, _ = model(x_emb, require_gradients=False)
@@ -310,13 +313,13 @@ def test_adam_config(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--vocab_size', type=int, default=20)
+    parser.add_argument('--vocab_size', type=int, default=64)
     parser.add_argument('--seq_length', type=int, default=5)
     parser.add_argument('--hidden_size', type=int, default=128)
     parser.add_argument('--num_heads', type=int, default=4)
     parser.add_argument('--max_time', type=float, default=10.0, help='Maximum time per configuration (seconds)')
     parser.add_argument('--max_loss', type=float, default=10.0, help='Maximum loss before quitting run')
-    parser.add_argument('--num_accurate_samples', type=int, default=100, help='Number of samples to test for 100%% accuracy')
+    parser.add_argument('--num_accurate_samples', type=int, default=5000, help='Number of samples to test for 100%% accuracy')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--adam-only', action='store_true', help='Only run Adam sweep')
