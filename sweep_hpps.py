@@ -147,9 +147,10 @@ def adam_step(model, embed, x_ids, y_ids, pad_id, optimizer):
 
 def test_spsa_config(
     vocab_size, seq_length, hidden_size, num_heads,
-    learning_rate, epsilon, num_perturbations, batch_size,
+    learning_rate, num_perturbations, batch_size,
     num_steps, device
 ):
+    epsilon = learning_rate
     """Test a single SPSA hyperparameter configuration."""
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
@@ -289,27 +290,32 @@ def main():
         print("SPSA SWEEP")
         print("=" * 80)
 
-        spsa_configs = [
-            # (lr, epsilon, num_pert, batch_size, name)
-            (0.01, 0.01, 4, 16, "Low LR, Small Epsilon, Few Pert"),
-            (0.05, 0.01, 4, 16, "Medium-Low LR, Small Epsilon"),
-            (0.1, 0.01, 8, 16, "Medium LR, Small Epsilon"),
-            (0.01, 0.05, 8, 16, "Low LR, Medium Epsilon"),
-            (0.05, 0.05, 8, 16, "Medium LR, Medium Epsilon"),
-            (0.01, 0.1, 16, 16, "Low LR, Large Epsilon, Many Pert"),
-            (0.05, 0.1, 16, 16, "Medium LR, Large Epsilon"),
-            (0.001, 0.01, 8, 8, "Very Low LR, Small Batch"),
-        ]
+        # Generate hyperparameter grid
+        learning_rates = 0.2 * 0.5 ** np.arange(0, 7)  # [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625, 0.003125]
+        batch_sizes = [8, 16, 24, 32, 48, 64]
+        perturbations_list = [4, 8, 16, 24, 32]
+
+        # Generate all combinations
+        spsa_configs = []
+        for lr in learning_rates:
+            for bs in batch_sizes:
+                for n_pert in perturbations_list:
+                    spsa_configs.append((lr, n_pert, bs))
+
+        print(f"Total SPSA configurations: {len(spsa_configs)}")
+        print(f"  Learning rates: {len(learning_rates)} values from {learning_rates[0]:.6f} to {learning_rates[-1]:.6f}")
+        print(f"  Batch sizes: {batch_sizes}")
+        print(f"  Perturbations: {perturbations_list}")
+        print()
 
         spsa_results = []
 
-        for lr, eps, n_pert, bs, name in spsa_configs:
-            print(f"\nTesting SPSA: {name}")
-            print(f"  LR={lr}, Epsilon={eps}, Perturbations={n_pert}, Batch={bs}")
+        for config_idx, (lr, n_pert, bs) in enumerate(spsa_configs, 1):
+            print(f"[{config_idx}/{len(spsa_configs)}] Testing SPSA: LR={lr:.6f}, Pert={n_pert}, Batch={bs}")
 
             losses, accuracies = test_spsa_config(
                 args.vocab_size, args.seq_length, args.hidden_size, args.num_heads,
-                lr, eps, n_pert, bs, args.num_steps, args.device
+                lr, n_pert, bs, args.num_steps, args.device
             )
 
             # Analyze results
@@ -323,9 +329,7 @@ def main():
                   f"Min: {min_loss:.4f}, Improve: {loss_improvement:.4f}, Acc: {final_acc:.4f}")
 
             spsa_results.append({
-                'name': name,
                 'lr': lr,
-                'epsilon': eps,
                 'num_perturbations': n_pert,
                 'batch_size': bs,
                 'initial_loss': initial_loss,
