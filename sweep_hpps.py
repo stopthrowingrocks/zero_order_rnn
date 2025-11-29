@@ -207,8 +207,8 @@ def main():
     parser.add_argument('--input_size', type=int, default=100)
     parser.add_argument('--num_heads', type=int, default=20)
     parser.add_argument('--max_time', type=float, default=30.0, help='Maximum time per configuration (seconds)')
-    parser.add_argument('--max_loss', type=float, default=0.01, help='Maximum loss before quitting run')
-    parser.add_argument('--num_accurate_samples', type=int, default=2048, help='Number of samples to test for 100%% accuracy')
+    parser.add_argument('--max_loss', type=float, default=10.0, help='Maximum loss before quitting run')
+    parser.add_argument('--convergence_loss', type=int, default=0.1, help='When this loss is reached, training stops')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--seed', type=int, default=42)
 
@@ -227,7 +227,6 @@ def main():
     print(f"Task: Reverse sequences of length {args.seq_length}")
     print(f"Vocab size: {args.vocab_size}, Hidden size: {args.hidden_size}")
     print(f"Max time per config: {args.max_time}s")
-    print(f"Convergence criterion: 100% accuracy on {args.num_accurate_samples} samples")
     print("=" * 80)
     print()
 
@@ -269,7 +268,7 @@ def main():
 
         losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
             args.vocab_size, args.seq_length, args.hidden_size, args.input_size, args.num_heads,
-            lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.max_loss,
+            lr, n_pert, bs, args.max_time, args.convergence_loss, args.max_loss,
             device,
         )
 
