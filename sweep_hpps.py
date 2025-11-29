@@ -135,7 +135,7 @@ def spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_pe
 def test_spsa_config(
     vocab_size, seq_length, hidden_size, input_size, num_heads,
     learning_rate, num_perturbations, batch_size,
-    max_time, num_accurate_samples, max_loss, device
+    max_time, convergence_loss, max_loss, device
 ):
     """Test a single SPSA hyperparameter configuration with early stopping."""
     import time
@@ -158,12 +158,6 @@ def test_spsa_config(
         device=device,
         dtype=torch.bfloat16
     )
-
-    # Generate test samples once at the beginning
-    test_samples = []
-    for _ in range(num_accurate_samples):
-        test_x, test_y = generate_reverse_batch(1, seq_length, vocab_size, device)
-        test_samples.append((test_x, test_y))
 
     # Training loop
     losses = []
@@ -188,22 +182,10 @@ def test_spsa_config(
         if loss >= max_loss:
             break
 
-        # Check for convergence: test on pre-generated test samples
-        if step % 10 == 0:  # Check every 10 steps
-            all_correct = True
-            for test_x, test_y in test_samples:
-                with torch.no_grad():
-                    x_emb = embed(test_x)
-                    logits, _, _ = model(x_emb, require_gradients=False)
-                    accuracy = compute_reverse_accuracy(logits, test_y, SEP, PAD)
-
-                if accuracy < 1.0:  # Not 100% accurate
-                    all_correct = False
-                    break
-
-            if all_correct:
-                converged = True
-                break
+        # Check for convergence: loss below threshold
+        if loss < convergence_loss:
+            converged = True
+            break
 
         # Compute accuracy on current batch periodically for logging
         if step % 50 == 0:
