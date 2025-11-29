@@ -318,7 +318,7 @@ def main():
     parser.add_argument('--seq_length', type=int, default=5)
     parser.add_argument('--hidden_size', type=int, default=128)
     parser.add_argument('--num_heads', type=int, default=4)
-    parser.add_argument('--max_time', type=float, default=10.0, help='Maximum time per configuration (seconds)')
+    parser.add_argument('--max_time', type=float, default=30.0, help='Maximum time per configuration (seconds)')
     parser.add_argument('--max_loss', type=float, default=10.0, help='Maximum loss before quitting run')
     parser.add_argument('--num_accurate_samples', type=int, default=5000, help='Number of samples to test for 100%% accuracy')
     parser.add_argument('--device', type=str, default='cuda')
@@ -357,9 +357,9 @@ def main():
         print("=" * 80)
 
         # Generate hyperparameter grid
-        learning_rates = 0.2 * 0.5 ** np.arange(0, 7)  # [0.2, 0.1, 0.05, 0.025, 0.0125, 0.00625, 0.003125]
-        batch_sizes = [8, 16, 24, 32, 48, 64]
-        perturbations_list = [4, 8, 16, 24, 32]
+        learning_rates = 0.2 * 0.5 ** (np.arange(0, 7) / 3)
+        batch_sizes = [32]
+        perturbations_list = [4, 8, 12, 16, 24, 32, 48]
 
         # Generate all combinations
         spsa_configs = []
