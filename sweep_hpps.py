@@ -375,6 +375,14 @@ def main():
         print()
 
         spsa_results = []
+        csv_filename = 'sweep_hpps_spsa_results.csv'
+
+        # Initialize CSV file with header
+        with open(csv_filename, 'w', newline='') as f:
+            fieldnames = ['lr', 'num_perturbations', 'batch_size', 'converged', 'elapsed_time',
+                         'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
 
         for config_idx, (lr, n_pert, bs) in enumerate(spsa_configs, 1):
             print(f"[{config_idx}/{len(spsa_configs)}] Testing SPSA: LR={lr:.6f}, Pert={n_pert}, Batch={bs}")
@@ -404,6 +412,26 @@ def main():
             print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
                   f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
 
+            # Write result to CSV incrementally
+            with open(csv_filename, 'a', newline='') as f:
+                fieldnames = ['lr', 'num_perturbations', 'batch_size', 'converged', 'elapsed_time',
+                             'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                row = {
+                    'lr': lr,
+                    'num_perturbations': n_pert,
+                    'batch_size': bs,
+                    'converged': converged,
+                    'elapsed_time': elapsed_time,
+                    'num_steps': num_steps,
+                    'initial_loss': initial_loss,
+                    'final_loss': final_loss,
+                    'min_loss': min_loss,
+                    'improvement': loss_improvement,
+                    'final_acc': final_acc
+                }
+                writer.writerow(row)
+
             spsa_results.append({
                 'lr': lr,
                 'num_perturbations': n_pert,
@@ -419,17 +447,6 @@ def main():
                 'losses': [float(l) for l in losses]
             })
 
-        # Save all SPSA results to CSV
-        csv_filename = 'sweep_hpps_spsa_results.csv'
-        with open(csv_filename, 'w', newline='') as f:
-            fieldnames = ['lr', 'num_perturbations', 'batch_size', 'converged', 'elapsed_time',
-                         'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            for result in spsa_results:
-                # Write row without 'losses' field
-                row = {k: v for k, v in result.items() if k != 'losses'}
-                writer.writerow(row)
         print(f"\n✓ SPSA results saved to {csv_filename}")
 
         # Find fastest converging configuration
@@ -467,6 +484,14 @@ def main():
         ]
 
         adam_results = []
+        csv_filename = 'sweep_hpps_adam_results.csv'
+
+        # Initialize CSV file with header
+        with open(csv_filename, 'w', newline='') as f:
+            fieldnames = ['name', 'lr', 'batch_size', 'converged', 'elapsed_time',
+                         'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
 
         for config_idx, (lr, bs, name) in enumerate(adam_configs, 1):
             print(f"[{config_idx}/{len(adam_configs)}] Testing Adam: {name} | LR={lr}, Batch={bs}")
@@ -490,6 +515,26 @@ def main():
             print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
                   f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
 
+            # Write result to CSV incrementally
+            with open(csv_filename, 'a', newline='') as f:
+                fieldnames = ['name', 'lr', 'batch_size', 'converged', 'elapsed_time',
+                             'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                row = {
+                    'name': name,
+                    'lr': lr,
+                    'batch_size': bs,
+                    'converged': converged,
+                    'elapsed_time': elapsed_time,
+                    'num_steps': num_steps,
+                    'initial_loss': initial_loss,
+                    'final_loss': final_loss,
+                    'min_loss': min_loss,
+                    'improvement': loss_improvement,
+                    'final_acc': final_acc
+                }
+                writer.writerow(row)
+
             adam_results.append({
                 'name': name,
                 'lr': lr,
@@ -505,17 +550,6 @@ def main():
                 'losses': [float(l) for l in losses]
             })
 
-        # Save all Adam results to CSV
-        csv_filename = 'sweep_hpps_adam_results.csv'
-        with open(csv_filename, 'w', newline='') as f:
-            fieldnames = ['name', 'lr', 'batch_size', 'converged', 'elapsed_time',
-                         'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            for result in adam_results:
-                # Write row without 'losses' field
-                row = {k: v for k, v in result.items() if k != 'losses'}
-                writer.writerow(row)
         print(f"\n✓ Adam results saved to {csv_filename}")
 
         # Find fastest converging configuration
