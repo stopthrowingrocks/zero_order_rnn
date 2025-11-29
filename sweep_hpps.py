@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hyperparameter sweep for SPSA and Adam optimizers on reverse task.
+Hyperparameter sweep for SPSA optimizer on reverse task.
 Outputs results to sweep_hpps_spsa_results.csv and hpps_spsa.json (best config).
 """
 import argparse
@@ -132,20 +132,6 @@ def spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_pe
     return current_loss
 
 
-def adam_step(model, embed, x_ids, y_ids, pad_id, optimizer):
-    """Perform a single Adam step with gradient computation."""
-    optimizer.zero_grad()
-
-    x_emb = embed(x_ids)
-    logits, _, _ = model(x_emb, require_gradients=True)
-    loss = compute_reverse_loss(logits, y_ids, pad_id)
-
-    loss.backward()
-    optimizer.step()
-
-    return loss.item()
-
-
 def test_spsa_config(
     vocab_size, seq_length, hidden_size, input_size, num_heads,
     learning_rate, num_perturbations, batch_size,
@@ -160,7 +146,7 @@ def test_spsa_config(
     PAD = vocab_size - 1
 
     # Create fresh model
-    embed = nn.Embedding(vocab_size, hidden_size, device=device, dtype=torch.bfloat16)
+    embed = nn.Embedding(vocab_size, input_size, device=device, dtype=torch.bfloat16)
     model = LSTM(
         input_size=input_size,
         output_size=vocab_size,
@@ -231,87 +217,6 @@ def test_spsa_config(
     return losses, accuracies, converged, elapsed_time, step
 
 
-def test_adam_config(
-    vocab_size, seq_length, hidden_size, num_heads,
-    learning_rate, batch_size, max_time, num_accurate_samples, device
-):
-    """Test a single Adam hyperparameter configuration with early stopping."""
-    import time
-
-    device = torch.device(device if torch.cuda.is_available() else 'cpu')
-
-    SEP = vocab_size - 3
-    PAD = vocab_size - 1
-
-    # Create fresh model
-    embed = nn.Embedding(vocab_size, hidden_size, device=device, dtype=torch.bfloat16)
-    model = LSTM(
-        input_size=input_size,
-        output_size=vocab_size,
-        hidden_size=hidden_size,
-        memory_size=0,
-        head_size=hidden_size // num_heads,
-        num_heads=num_heads,
-        embed=embed,
-        device=device,
-        dtype=torch.bfloat16
-    )
-
-    # Create Adam optimizer
-    optimizer = torch.optim.Adam(
-        list(model.parameters()) + list(embed.parameters()),
-        lr=learning_rate
-    )
-
-    # Training loop
-    losses = []
-    accuracies = []
-    start_time = time.time()
-    converged = False
-
-    step = 0
-    while time.time() - start_time < max_time:
-        # Generate batch
-        x_ids, y_ids = generate_reverse_batch(batch_size, seq_length, vocab_size, device)
-
-        # Adam optimization step
-        loss = adam_step(model, embed, x_ids, y_ids, PAD, optimizer)
-
-        losses.append(loss)
-        step += 1
-
-        # Check for convergence: test on num_accurate_samples random samples
-        if step % 10 == 0:  # Check every 10 steps
-            all_correct = True
-            for _ in range(num_accurate_samples):
-                # Generate test sample
-                test_x, test_y = generate_reverse_batch(1, seq_length, vocab_size, device)
-
-                with torch.no_grad():
-                    x_emb = embed(test_x)
-                    logits, _, _ = model(x_emb, require_gradients=False)
-                    accuracy = compute_reverse_accuracy(logits, test_y, SEP, PAD)
-
-                if accuracy < 1.0:  # Not 100% accurate
-                    all_correct = False
-                    break
-
-            if all_correct:
-                converged = True
-                break
-
-        # Compute accuracy on current batch periodically for logging
-        if step % 50 == 0:
-            with torch.no_grad():
-                x_emb = embed(x_ids)
-                logits, _, _ = model(x_emb, require_gradients=False)
-                accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
-                accuracies.append(accuracy)
-
-    elapsed_time = time.time() - start_time
-    return losses, accuracies, converged, elapsed_time, step
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--vocab_size', type=int, default=64)
@@ -324,8 +229,6 @@ def main():
     parser.add_argument('--num_accurate_samples', type=int, default=2048, help='Number of samples to test for 100%% accuracy')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--adam-only', action='store_true', help='Only run Adam sweep')
-    parser.add_argument('--spsa-only', action='store_true', help='Only run SPSA sweep')
 
     args = parser.parse_args()
 
@@ -333,107 +236,86 @@ def main():
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # Determine what to run
-    run_adam = not args.spsa_only
-    run_spsa = not args.adam_only
-
     # Set device
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
 
     print("=" * 80)
-    print("HYPERPARAMETER SWEEP: SPSA vs Adam")
+    print("HYPERPARAMETER SWEEP: SPSA")
     print("=" * 80)
     print(f"Task: Reverse sequences of length {args.seq_length}")
     print(f"Vocab size: {args.vocab_size}, Hidden size: {args.hidden_size}")
     print(f"Max time per config: {args.max_time}s")
     print(f"Convergence criterion: 100% accuracy on {args.num_accurate_samples} samples")
-    print(f"Running: {'SPSA ' if run_spsa else ''}{'Adam' if run_adam else ''}")
     print("=" * 80)
     print()
 
     # SPSA hyperparameter grid
-    if run_spsa:
-        print("\n" + "=" * 80)
-        print("SPSA SWEEP")
-        print("=" * 80)
+    print("\n" + "=" * 80)
+    print("SPSA SWEEP")
+    print("=" * 80)
 
-        # Generate hyperparameter grid
-        learning_rates = 0.2 * 0.5 ** (np.arange(0, 7) / 3)
-        batch_sizes = [32]
-        perturbations_list = [4, 8, 12, 16, 24, 32, 48]
+    # Generate hyperparameter grid
+    learning_rates = 0.2 * 0.5 ** (np.arange(0, 7) / 3)
+    batch_sizes = [32]
+    perturbations_list = [4, 8, 12, 16, 24, 32, 48]
 
-        # Generate all combinations
-        spsa_configs = []
-        for lr in learning_rates:
-            for bs in batch_sizes:
-                for n_pert in perturbations_list:
-                    spsa_configs.append((lr, n_pert, bs))
+    # Generate all combinations
+    spsa_configs = []
+    for lr in learning_rates:
+        for bs in batch_sizes:
+            for n_pert in perturbations_list:
+                spsa_configs.append((lr, n_pert, bs))
 
-        print(f"Total SPSA configurations: {len(spsa_configs)}")
-        print(f"  Learning rates: {len(learning_rates)} values from {learning_rates[0]:.6f} to {learning_rates[-1]:.6f}")
-        print(f"  Batch sizes: {batch_sizes}")
-        print(f"  Perturbations: {perturbations_list}")
-        print()
+    print(f"Total SPSA configurations: {len(spsa_configs)}")
+    print(f"  Learning rates: {len(learning_rates)} values from {learning_rates[0]:.6f} to {learning_rates[-1]:.6f}")
+    print(f"  Batch sizes: {batch_sizes}")
+    print(f"  Perturbations: {perturbations_list}")
+    print()
 
-        spsa_results = []
-        csv_filename = 'sweep_hpps_spsa_results.csv'
+    spsa_results = []
+    csv_filename = 'sweep_hpps_spsa_results.csv'
 
-        # Initialize CSV file with header
-        with open(csv_filename, 'w', newline='') as f:
+    # Initialize CSV file with header
+    with open(csv_filename, 'w', newline='') as f:
+        fieldnames = ['lr', 'num_perturbations', 'batch_size', 'converged', 'elapsed_time',
+                     'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+    for config_idx, (lr, n_pert, bs) in enumerate(spsa_configs, 1):
+        print(f"[{config_idx}/{len(spsa_configs)}] Testing SPSA: LR={lr:.6f}, Pert={n_pert}, Batch={bs}")
+
+        losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
+            args.vocab_size, args.seq_length, args.hidden_size, args.input_size, args.num_heads,
+            lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.max_loss,
+            device,
+        )
+
+        # Analyze results
+        initial_loss = float(np.mean(losses[:10]) if len(losses) >= 10 else np.mean(losses))
+        final_loss = float(np.mean(losses[-50:]) if len(losses) >= 50 else np.mean(losses))
+        min_loss = float(min(losses)) if losses else float('inf')
+        loss_improvement = initial_loss - final_loss
+        final_acc = float(accuracies[-1] if accuracies else 0.0)
+
+        # Determine status
+        timed_out = elapsed_time >= args.max_time - 0.01  # Small tolerance for timing
+        if converged:
+            status = "CONVERGED"
+        elif timed_out:
+            status = "TIMEOUT (not converged)"
+        else:
+            status = "STOPPED (loss >= max_loss)"
+
+        print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
+              f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
+
+        # Write result to CSV incrementally
+        with open(csv_filename, 'a', newline='') as f:
             fieldnames = ['lr', 'num_perturbations', 'batch_size', 'converged', 'elapsed_time',
                          'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-
-        for config_idx, (lr, n_pert, bs) in enumerate(spsa_configs, 1):
-            print(f"[{config_idx}/{len(spsa_configs)}] Testing SPSA: LR={lr:.6f}, Pert={n_pert}, Batch={bs}")
-
-            losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
-                args.vocab_size, args.seq_length, args.hidden_size, args.input_size, args.num_heads,
-                lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.max_loss,
-                device,
-            )
-
-            # Analyze results
-            initial_loss = float(np.mean(losses[:10]) if len(losses) >= 10 else np.mean(losses))
-            final_loss = float(np.mean(losses[-50:]) if len(losses) >= 50 else np.mean(losses))
-            min_loss = float(min(losses)) if losses else float('inf')
-            loss_improvement = initial_loss - final_loss
-            final_acc = float(accuracies[-1] if accuracies else 0.0)
-
-            # Determine status
-            timed_out = elapsed_time >= args.max_time - 0.01  # Small tolerance for timing
-            if converged:
-                status = "CONVERGED"
-            elif timed_out:
-                status = "TIMEOUT (not converged)"
-            else:
-                status = "STOPPED (loss >= max_loss)"
-
-            print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
-                  f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
-
-            # Write result to CSV incrementally
-            with open(csv_filename, 'a', newline='') as f:
-                fieldnames = ['lr', 'num_perturbations', 'batch_size', 'converged', 'elapsed_time',
-                             'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                row = {
-                    'lr': lr,
-                    'num_perturbations': n_pert,
-                    'batch_size': bs,
-                    'converged': converged,
-                    'elapsed_time': elapsed_time,
-                    'num_steps': num_steps,
-                    'initial_loss': initial_loss,
-                    'final_loss': final_loss,
-                    'min_loss': min_loss,
-                    'improvement': loss_improvement,
-                    'final_acc': final_acc
-                }
-                writer.writerow(row)
-
-            spsa_results.append({
+            row = {
                 'lr': lr,
                 'num_perturbations': n_pert,
                 'batch_size': bs,
@@ -444,129 +326,42 @@ def main():
                 'final_loss': final_loss,
                 'min_loss': min_loss,
                 'improvement': loss_improvement,
-                'final_acc': final_acc,
-                'losses': [float(l) for l in losses]
-            })
+                'final_acc': final_acc
+            }
+            writer.writerow(row)
 
-        print(f"\n✓ SPSA results saved to {csv_filename}")
+        spsa_results.append({
+            'lr': lr,
+            'num_perturbations': n_pert,
+            'batch_size': bs,
+            'converged': converged,
+            'elapsed_time': elapsed_time,
+            'num_steps': num_steps,
+            'initial_loss': initial_loss,
+            'final_loss': final_loss,
+            'min_loss': min_loss,
+            'improvement': loss_improvement,
+            'final_acc': final_acc,
+            'losses': [float(l) for l in losses]
+        })
 
-        # Find fastest converging configuration
-        converged_results = [r for r in spsa_results if r['converged']]
-        if converged_results:
-            best_result = min(converged_results, key=lambda r: r['elapsed_time'])
+    print(f"\n✓ SPSA results saved to {csv_filename}")
 
-            # Save best configuration to JSON
-            with open('hpps_spsa.json', 'w') as f:
-                json.dump(best_result, f, indent=2)
+    # Find fastest converging configuration
+    converged_results = [r for r in spsa_results if r['converged']]
+    if converged_results:
+        best_result = min(converged_results, key=lambda r: r['elapsed_time'])
 
-            print(f"\n✓ Best SPSA config saved to hpps_spsa.json")
-            print(f"  LR={best_result['lr']:.6f}, Pert={best_result['num_perturbations']}, "
-                  f"Batch={best_result['batch_size']}")
-            print(f"  Converged in {best_result['elapsed_time']:.2f}s ({best_result['num_steps']} steps)")
-        else:
-            print(f"\n⚠ No SPSA configurations converged - no hpps_spsa.json written")
+        # Save best configuration to JSON
+        with open('hpps_spsa.json', 'w') as f:
+            json.dump(best_result, f, indent=2)
 
-    # Adam hyperparameter grid
-    if run_adam:
-        print("\n" + "=" * 80)
-        print("ADAM SWEEP")
-        print("=" * 80)
-
-        adam_configs = [
-            # (lr, batch_size, name)
-            (0.001, 16, "Low LR"),
-            (0.003, 16, "Medium-Low LR"),
-            (0.01, 16, "Medium LR"),
-            (0.03, 16, "Medium-High LR"),
-            (0.1, 16, "High LR"),
-            (0.001, 8, "Low LR, Small Batch"),
-            (0.01, 8, "Medium LR, Small Batch"),
-            (0.001, 32, "Low LR, Large Batch"),
-        ]
-
-        adam_results = []
-        csv_filename = 'sweep_hpps_adam_results.csv'
-
-        # Initialize CSV file with header
-        with open(csv_filename, 'w', newline='') as f:
-            fieldnames = ['name', 'lr', 'batch_size', 'converged', 'elapsed_time',
-                         'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-
-        for config_idx, (lr, bs, name) in enumerate(adam_configs, 1):
-            print(f"[{config_idx}/{len(adam_configs)}] Testing Adam: {name} | LR={lr}, Batch={bs}")
-
-            losses, accuracies, converged, elapsed_time, num_steps = test_adam_config(
-                args.vocab_size, args.seq_length, args.hidden_size, args.num_heads,
-                lr, bs, args.max_time, args.num_accurate_samples, args.device
-            )
-
-            # Analyze results
-            initial_loss = float(np.mean(losses[:10]) if len(losses) >= 10 else np.mean(losses))
-            final_loss = float(np.mean(losses[-50:]) if len(losses) >= 50 else np.mean(losses))
-            min_loss = float(min(losses)) if losses else float('inf')
-            loss_improvement = initial_loss - final_loss
-            final_acc = float(accuracies[-1] if accuracies else 0.0)
-
-            # Determine status
-            timed_out = elapsed_time >= args.max_time - 0.01  # Small tolerance for timing
-            status = "CONVERGED" if converged else "TIMEOUT (not converged)"
-
-            print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
-                  f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
-
-            # Write result to CSV incrementally
-            with open(csv_filename, 'a', newline='') as f:
-                fieldnames = ['name', 'lr', 'batch_size', 'converged', 'elapsed_time',
-                             'num_steps', 'initial_loss', 'final_loss', 'min_loss', 'improvement', 'final_acc']
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                row = {
-                    'name': name,
-                    'lr': lr,
-                    'batch_size': bs,
-                    'converged': converged,
-                    'elapsed_time': elapsed_time,
-                    'num_steps': num_steps,
-                    'initial_loss': initial_loss,
-                    'final_loss': final_loss,
-                    'min_loss': min_loss,
-                    'improvement': loss_improvement,
-                    'final_acc': final_acc
-                }
-                writer.writerow(row)
-
-            adam_results.append({
-                'name': name,
-                'lr': lr,
-                'batch_size': bs,
-                'converged': converged,
-                'elapsed_time': elapsed_time,
-                'num_steps': num_steps,
-                'initial_loss': initial_loss,
-                'final_loss': final_loss,
-                'min_loss': min_loss,
-                'improvement': loss_improvement,
-                'final_acc': final_acc,
-                'losses': [float(l) for l in losses]
-            })
-
-        print(f"\n✓ Adam results saved to {csv_filename}")
-
-        # Find fastest converging configuration
-        converged_results = [r for r in adam_results if r['converged']]
-        if converged_results:
-            best_result = min(converged_results, key=lambda r: r['elapsed_time'])
-
-            # Save best configuration to JSON
-            with open('hpps_adam.json', 'w') as f:
-                json.dump(best_result, f, indent=2)
-
-            print(f"\n✓ Best Adam config saved to hpps_adam.json")
-            print(f"  {best_result['name']}: LR={best_result['lr']}, Batch={best_result['batch_size']}")
-            print(f"  Converged in {best_result['elapsed_time']:.2f}s ({best_result['num_steps']} steps)")
-        else:
-            print(f"\n⚠ No Adam configurations converged - no hpps_adam.json written")
+        print(f"\n✓ Best SPSA config saved to hpps_spsa.json")
+        print(f"  LR={best_result['lr']:.6f}, Pert={best_result['num_perturbations']}, "
+              f"Batch={best_result['batch_size']}")
+        print(f"  Converged in {best_result['elapsed_time']:.2f}s ({best_result['num_steps']} steps)")
+    else:
+        print(f"\n⚠ No SPSA configurations converged - no hpps_spsa.json written")
 
     print("\n" + "=" * 80)
     print("SWEEP COMPLETE")
