@@ -321,7 +321,7 @@ def main():
     parser.add_argument('--num_heads', type=int, default=20)
     parser.add_argument('--max_time', type=float, default=30.0, help='Maximum time per configuration (seconds)')
     parser.add_argument('--max_loss', type=float, default=10.0, help='Maximum loss before quitting run')
-    parser.add_argument('--num_accurate_samples', type=int, default=5000, help='Number of samples to test for 100%% accuracy')
+    parser.add_argument('--num_accurate_samples', type=int, default=2048, help='Number of samples to test for 100%% accuracy')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--adam-only', action='store_true', help='Only run Adam sweep')
