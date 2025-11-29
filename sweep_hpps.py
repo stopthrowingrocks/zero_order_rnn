@@ -147,7 +147,7 @@ def adam_step(model, embed, x_ids, y_ids, pad_id, optimizer):
 
 
 def test_spsa_config(
-    vocab_size, seq_length, hidden_size, num_heads,
+    vocab_size, seq_length, hidden_size, input_size, num_heads,
     learning_rate, num_perturbations, batch_size,
     max_time, num_accurate_samples, max_loss, device
 ):
@@ -162,7 +162,7 @@ def test_spsa_config(
     # Create fresh model
     embed = nn.Embedding(vocab_size, hidden_size, device=device, dtype=torch.bfloat16)
     model = LSTM(
-        input_size=hidden_size,
+        input_size=input_size,
         output_size=vocab_size,
         hidden_size=hidden_size,
         memory_size=0,
@@ -246,7 +246,7 @@ def test_adam_config(
     # Create fresh model
     embed = nn.Embedding(vocab_size, hidden_size, device=device, dtype=torch.bfloat16)
     model = LSTM(
-        input_size=hidden_size,
+        input_size=input_size,
         output_size=vocab_size,
         hidden_size=hidden_size,
         memory_size=0,
@@ -316,8 +316,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--vocab_size', type=int, default=64)
     parser.add_argument('--seq_length', type=int, default=5)
-    parser.add_argument('--hidden_size', type=int, default=128)
-    parser.add_argument('--num_heads', type=int, default=4)
+    parser.add_argument('--hidden_size', type=int, default=240)
+    parser.add_argument('--input_size', type=int, default=100)
+    parser.add_argument('--num_heads', type=int, default=20)
     parser.add_argument('--max_time', type=float, default=30.0, help='Maximum time per configuration (seconds)')
     parser.add_argument('--max_loss', type=float, default=10.0, help='Maximum loss before quitting run')
     parser.add_argument('--num_accurate_samples', type=int, default=5000, help='Number of samples to test for 100%% accuracy')
@@ -388,7 +389,7 @@ def main():
             print(f"[{config_idx}/{len(spsa_configs)}] Testing SPSA: LR={lr:.6f}, Pert={n_pert}, Batch={bs}")
 
             losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
-                args.vocab_size, args.seq_length, args.hidden_size, args.num_heads,
+                args.vocab_size, args.seq_length, args.hidden_size, args.input_size, args.num_heads,
                 lr, n_pert, bs, args.max_time, args.num_accurate_samples, args.max_loss,
                 device,
             )
