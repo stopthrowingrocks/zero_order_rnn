@@ -11,15 +11,13 @@ import torch
 import torch.nn as nn
 from models.models import LSTM
 from shared import generate_reverse_batch, compute_reverse_loss, compute_reverse_accuracy
+from distributed_rge import teacher_forcing_loss_emb_parallel
 
-def adam_step(model, embed, x_ids, y_ids, pad_id, optimizer):
+def adam_step(model, x_ids, y_ids, optimizer, criterion):
     """Perform a single Adam step with gradient computation."""
     optimizer.zero_grad()
 
-    x_emb = embed(x_ids)
-    logits, _, _ = model(x_emb, require_gradients=True)
-    loss = compute_reverse_loss(logits, y_ids, pad_id)
-
+    loss = teacher_forcing_loss_emb_parallel(model, x_ids, y_ids, criterion)
     loss.backward()
     optimizer.step()
 
@@ -58,6 +56,7 @@ def test_adam_config(
         list(model.parameters()) + list(embed.parameters()),
         lr=learning_rate
     )
+    criterion = nn.CrossEntropyLoss(ignore_index=PAD).to(device)
 
     # Training loop
     losses = []
@@ -71,7 +70,7 @@ def test_adam_config(
         x_ids, y_ids = generate_reverse_batch(batch_size, min_seq_length, max_seq_length, vocab_size, device)
 
         # Adam optimization step
-        loss = adam_step(model, embed, x_ids, y_ids, PAD, optimizer)
+        loss = adam_step(model, x_ids, y_ids, optimizer, criterion)
 
         losses.append(loss)
         step += 1
