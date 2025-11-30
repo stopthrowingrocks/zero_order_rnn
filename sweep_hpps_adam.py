@@ -118,7 +118,7 @@ def main():
     print("=" * 80)
     print("HYPERPARAMETER SWEEP: ADAM")
     print("=" * 80)
-    print(f"Task: Reverse sequences of length {args.seq_length}")
+    print(f"Task: Reverse sequences of length {args.min_seq_length}-{args.max_seq_length}")
     print(f"Vocab size: {args.vocab_size}, Hidden size: {args.hidden_size}")
     print(f"Max time per config: {args.max_time}s")
     print(f"Convergence criterion: loss < {args.convergence_loss}")
@@ -163,7 +163,7 @@ def main():
         print(f"[{config_idx}/{len(adam_configs)}] Testing Adam: LR={lr:.6f}, Batch={bs}")
 
         losses, accuracies, converged, elapsed_time, num_steps = test_adam_config(
-            args.vocab_size, args.seq_length, args.hidden_size, args.input_size, args.num_heads,
+            args.vocab_size, args.min_seq_length, args.max_seq_length, args.hidden_size, args.input_size, args.num_heads,
             lr, bs, args.max_time, args.convergence_loss, device
         )
 
