@@ -48,7 +48,8 @@ def test_adam_config(
         num_heads=num_heads,
         embed=embed,
         device=device,
-        dtype=torch.bfloat16
+        dtype=torch.bfloat16,
+        require_gradients=True,
     )
 
     # Create Adam optimizer
