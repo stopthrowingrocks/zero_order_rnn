@@ -190,10 +190,10 @@ def main():
     print("=" * 80)
 
     # Generate hyperparameter grid - same learning rates as SPSA
-    learning_rates = 0.2 * 0.5 ** (np.arange(0, 7) / 3)
+    learning_rates = 0.1 * 0.5 ** (np.arange(0, 7) / 2)
 
     # Batch sizes: base batch size (32) multiplied by SPSA perturbation values
-    batch_sizes = [16, 32, 64, 128, 256]
+    batch_sizes = [32, 64, 128, 256]
 
     # Generate all combinations
     adam_configs = []
@@ -236,7 +236,7 @@ def main():
         status = "CONVERGED" if converged else "TIMEOUT (not converged)"
 
         print(f"  {status} in {elapsed_time:.2f}s ({num_steps} steps) | "
-              f"Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
+              f"Initial: {initial_loss:.4f}, Final: {final_loss:.4f}, Min: {min_loss:.4f}, Acc: {final_acc:.4f}")
 
         # Write result to CSV incrementally
         with open(csv_filename, 'a', newline='') as f:
