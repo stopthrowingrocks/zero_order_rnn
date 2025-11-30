@@ -109,13 +109,10 @@ def teacher_forcing_loss_emb_parallel(model, x_ids, y_ids_unpadded, criterion, c
 
         # Process input sequence first
         pos = 0
-        # print("Starting stuff")
         while pos < Lx:
             chunk_end = min(pos + chunk_size, Lx)
             input_chunk = x_emb[:, pos:chunk_end, :]
-            # print("Running model")
             out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory)
-            # print("Done running model")
             hidden = hidden_new
             memory = mem_new
             pos = chunk_end
