@@ -167,7 +167,7 @@ def main():
 
         # Analyze results
         initial_loss = float(np.mean(losses[:10]) if len(losses) >= 10 else np.mean(losses))
-        final_loss = float(np.mean(losses[-50:]) if len(losses) >= 50 else np.mean(losses))
+        final_loss = float(losses[-1])
         min_loss = float(min(losses)) if losses else float('inf')
         loss_improvement = initial_loss - final_loss
         final_acc = float(accuracies[-1] if accuracies else 0.0)
