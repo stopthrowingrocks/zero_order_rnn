@@ -193,7 +193,7 @@ def main():
     learning_rates = 0.1 * 0.5 ** (np.arange(0, 7) / 2)
 
     # Batch sizes: base batch size (32) multiplied by SPSA perturbation values
-    batch_sizes = [32, 64, 128, 256]
+    batch_sizes = [64]
 
     # Generate all combinations
     adam_configs = []
