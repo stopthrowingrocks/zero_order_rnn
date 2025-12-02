@@ -94,7 +94,7 @@ def train_to_convergence(
     if use_wandb and WANDB_AVAILABLE:
         wandb.init(
             project=wandb_project or "zero-order-rnn",
-            name=wandb_run_name,
+            name=f"adam_lr_{learning_rate}_batch_{batch_size}_max_seq_{max_seq_length}",
             config={
                 "optimizer": "adam",
                 "vocab_size": vocab_size,
@@ -278,10 +278,6 @@ def main():
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda or cpu)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
 
-    # Wandb settings
-    parser.add_argument('--wandb_project', type=str, default=None, help='Wandb project name (enables wandb if set)')
-    parser.add_argument('--wandb_run_name', type=str, default=None, help='Wandb run name')
-
     args = parser.parse_args()
 
     # Enable wandb if project is specified
@@ -304,8 +300,6 @@ def main():
         device=args.device,
         seed=args.seed,
         use_wandb=use_wandb,
-        wandb_project=args.wandb_project,
-        wandb_run_name=args.wandb_run_name,
     )
 
     print()
