@@ -216,7 +216,7 @@ def train_to_convergence(
     converged = False
     best_loss = float('inf')
     min_seq_length_t = 1
-    max_seq_length_t = 5
+    max_seq_length_t = 3
 
     for step in range(max_steps):
         step_start = time.time()
