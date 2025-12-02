@@ -161,12 +161,14 @@ def train_to_convergence(
     start_time = time.time()
     converged = False
     best_loss = float('inf')
+    min_seq_length_t = 1
+    max_seq_length_t = 5
 
     for step in range(max_steps):
         step_start = time.time()
 
         # Generate batch
-        x_ids, y_ids = generate_reverse_batch(batch_size, min_seq_length, max_seq_length, vocab_size, device)
+        x_ids, y_ids = generate_reverse_batch(batch_size, min_seq_length_t, max_seq_length_t, vocab_size, device)
 
         # Forward pass and backward pass
         optimizer.zero_grad()
@@ -216,16 +218,25 @@ def train_to_convergence(
 
         # Check convergence
         if loss_value <= convergence_loss:
-            converged = True
-            print()
-            print("=" * 80)
-            print(f"✓ CONVERGED at step {step}!")
-            print(f"  Final loss: {loss_value:.6f} <= {convergence_loss}")
-            print(f"  Final accuracy: {accuracy:.4f}" if accuracy is not None else "")
-            print(f"  Elapsed time: {elapsed_time:.2f}s")
-            print(f"  Steps per second: {step / elapsed_time:.2f}")
-            print("=" * 80)
-            break
+            final = True
+            if min_seq_length_t < min_seq_length:
+                min_seq_length_t += 1
+                final = False
+            if max_seq_length_t < max_seq_length:
+                max_seq_length_t += 1
+                final = False
+
+            if final:
+                converged = True
+                print()
+                print("=" * 80)
+                print(f"✓ CONVERGED at step {step}!")
+                print(f"  Final loss: {loss_value:.6f} <= {convergence_loss}")
+                print(f"  Final accuracy: {accuracy:.4f}" if accuracy is not None else "")
+                print(f"  Elapsed time: {elapsed_time:.2f}s")
+                print(f"  Steps per second: {step / elapsed_time:.2f}")
+                print("=" * 80)
+                break
 
     if not converged:
         print()
