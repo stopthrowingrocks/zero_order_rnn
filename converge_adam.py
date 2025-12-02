@@ -85,15 +85,14 @@ def teacher_forcing_loss_for_adam(model, x_ids, y_ids_unpadded, criterion, chunk
 
 def train_to_convergence(
     vocab_size, min_seq_length, max_seq_length, hidden_size, input_size, num_heads,
-    learning_rate, batch_size, convergence_loss, max_steps, device, seed,
-    use_wandb=False, wandb_project=None, wandb_run_name=None
+    learning_rate, batch_size, convergence_loss, max_steps, device, seed
 ):
     """Train model with Adam to convergence with wandb logging."""
 
     # Initialize wandb if requested
-    if use_wandb and WANDB_AVAILABLE:
+    if WANDB_AVAILABLE:
         wandb.init(
-            project=wandb_project or "zero-order-rnn",
+            project="zero-order-rnn",
             name=f"adam_lr_{learning_rate}_batch_{batch_size}_max_seq_{max_seq_length}",
             config={
                 "optimizer": "adam",
@@ -153,8 +152,8 @@ def train_to_convergence(
     print(f"Learning rate: {learning_rate}, Batch size: {batch_size}")
     print(f"Convergence criterion: loss <= {convergence_loss}")
     print(f"Max steps: {max_steps}")
-    if use_wandb and WANDB_AVAILABLE:
-        print(f"Weights & Biases: Enabled (project: {wandb_project or 'zero-order-rnn'})")
+    if WANDB_AVAILABLE:
+        print(f"Weights & Biases: Enabled (project: zero-order-rnn)")
     print("=" * 80)
     print()
 
@@ -196,7 +195,7 @@ def train_to_convergence(
                 accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
 
         # Log to wandb
-        if use_wandb and WANDB_AVAILABLE:
+        if WANDB_AVAILABLE:
             log_dict = {
                 "step": step,
                 "loss": loss_value,
@@ -238,7 +237,7 @@ def train_to_convergence(
         print("=" * 80)
 
     # Final summary to wandb
-    if use_wandb and WANDB_AVAILABLE:
+    if WANDB_AVAILABLE:
         wandb.log({
             "converged": converged,
             "final_loss": loss_value,
@@ -280,11 +279,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Enable wandb if project is specified
-    use_wandb = args.wandb_project is not None and WANDB_AVAILABLE
-    if args.wandb_project and not WANDB_AVAILABLE:
-        print("⚠ wandb project specified but wandb not available. Continuing without wandb.")
-
     # Train to convergence
     result = train_to_convergence(
         vocab_size=args.vocab_size,
@@ -299,7 +293,6 @@ def main():
         max_steps=args.max_steps,
         device=args.device,
         seed=args.seed,
-        use_wandb=use_wandb,
     )
 
     print()
