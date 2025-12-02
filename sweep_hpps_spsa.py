@@ -159,7 +159,7 @@ def main():
     print("=" * 80)
     print("HYPERPARAMETER SWEEP: SPSA")
     print("=" * 80)
-    print(f"Task: Reverse sequences of length {args.seq_length}")
+    print(f"Task: Reverse sequences of length {args.min_seq_length} -> {args.max_seq_length}")
     print(f"Vocab size: {args.vocab_size}, Hidden size: {args.hidden_size}")
     print(f"Max time per config: {args.max_time}s")
     print("=" * 80)
