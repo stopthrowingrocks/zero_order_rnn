@@ -69,27 +69,25 @@ def spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_pe
 
 
 def test_spsa_config(
-    vocab_size, min_seq_length, max_seq_length, hidden_size, input_size, num_heads,
-    learning_rate, num_perturbations, batch_size,
-    max_time, convergence_loss, max_loss, device
+    args, device
 ):
     """Test a single SPSA hyperparameter configuration with early stopping."""
     import time
 
-    epsilon = learning_rate
+    epsilon = args.learning_rate
 
-    SEP = vocab_size - 3
-    PAD = vocab_size - 1
+    SEP = args.vocab_size - 3
+    PAD = args.vocab_size - 1
 
     # Create fresh model
-    embed = nn.Embedding(vocab_size, input_size, device=device, dtype=torch.bfloat16)
+    embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.bfloat16)
     model = LSTM(
-        input_size=input_size,
-        output_size=vocab_size,
-        hidden_size=hidden_size,
+        input_size=args.input_size,
+        output_size=args.vocab_size,
+        hidden_size=args.hidden_size,
         memory_size=0,
-        head_size=hidden_size // num_heads,
-        num_heads=num_heads,
+        head_size=args.hidden_size // args.num_heads,
+        num_heads=args.num_heads,
         embed=embed,
         device=device,
         dtype=torch.bfloat16
@@ -102,24 +100,24 @@ def test_spsa_config(
     converged = False
 
     step = 0
-    while time.time() - start_time < max_time:
+    while time.time() - start_time < args.max_time:
         # Generate batch
-        x_ids, y_ids = generate_reverse_batch(batch_size, min_seq_length, max_seq_length, vocab_size, device)
+        x_ids, y_ids = generate_reverse_batch(args.batch_size, args.min_seq_length, args.max_seq_length, args.vocab_size, device)
 
         # SPSA optimization step
         loss = spsa_step(
             model, embed, x_ids, y_ids, PAD,
-            learning_rate, epsilon, num_perturbations
+            args.learning_rate, epsilon, args.num_perturbations
         )
 
         losses.append(loss)
         step += 1
 
-        if loss >= max_loss:
+        if loss >= args.max_loss:
             break
 
         # Check for convergence: loss below threshold
-        if loss < convergence_loss:
+        if loss < args.convergence_loss:
             converged = True
             break
 
@@ -138,7 +136,8 @@ def test_spsa_config(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--vocab_size', type=int, default=64)
-    parser.add_argument('--seq_length', type=int, default=5)
+    parser.add_argument('--min_seq_length', type=int, default=5)
+    parser.add_argument('--max_seq_length', type=int, default=64)
     parser.add_argument('--hidden_size', type=int, default=240)
     parser.add_argument('--input_size', type=int, default=100)
     parser.add_argument('--num_heads', type=int, default=20)
@@ -202,11 +201,10 @@ def main():
     for config_idx, (lr, n_pert, bs) in enumerate(spsa_configs, 1):
         print(f"[{config_idx}/{len(spsa_configs)}] Testing SPSA: LR={lr:.6f}, Pert={n_pert}, Batch={bs}")
 
-        losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(
-            args.vocab_size, args.seq_length, args.hidden_size, args.input_size, args.num_heads,
-            lr, n_pert, bs, args.max_time, args.convergence_loss, args.max_loss,
-            device,
-        )
+        args.learning_rate = lr
+        args.num_perturbations = n_pert
+        args.batch_size = bs
+        losses, accuracies, converged, elapsed_time, num_steps = test_spsa_config(args, device)
 
         # Analyze results
         initial_loss = float(np.mean(losses[:10]) if len(losses) >= 10 else np.mean(losses))
