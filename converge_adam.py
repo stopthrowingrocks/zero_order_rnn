@@ -213,7 +213,7 @@ def train_to_convergence(
         if step % 10 == 0 or loss_value <= convergence_loss:
             acc_str = f", Acc: {accuracy:.4f}" if accuracy is not None else ""
             print(f"Step {step:5d}: Loss={loss_value:.6f}, Best={best_loss:.6f}, "
-                  f"Grad={grad_norm.item():.4f}{acc_str}, Time={step_time:.3f}s")
+                  f"Grad={grad_norm.item():.4f}{acc_str}, Time={step_time:.3f}s, Elapsed={elapsed_time:.3f}")
 
         # Check convergence
         if loss_value <= convergence_loss:
