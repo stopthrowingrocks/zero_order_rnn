@@ -205,6 +205,8 @@ def train_to_convergence(
                 "grad_norm": grad_norm.item(),
                 "step_time": step_time,
                 "elapsed_time": elapsed_time,
+                "min_seq_length_t": min_seq_length_t,
+                "max_seq_length_t": max_seq_length_t,
             }
             if accuracy is not None:
                 log_dict["accuracy"] = accuracy
