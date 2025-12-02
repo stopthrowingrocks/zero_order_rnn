@@ -12,16 +12,75 @@ import torch.nn as nn
 from models.models import LSTM
 from shared import generate_reverse_batch, compute_reverse_loss, compute_reverse_accuracy
 
-def spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_perturbations):
+
+def teacher_forcing_loss_for_spsa(model, x_ids, y_ids_unpadded, criterion, chunk_size=32):
+    """
+    Teacher forcing loss computation for SPSA (no gradients needed).
+    Processes input and target sequences in chunks to compute loss over all output tokens.
+    """
+    with torch.no_grad():
+        x_emb = model.embed(x_ids)
+
+        next_param = next(model.parameters())
+        if x_emb.dtype != next_param.dtype:
+            x_emb = x_emb.to(dtype=next_param.dtype)
+        Lx = x_emb.shape[1]
+        Ly = y_ids_unpadded.shape[1]
+
+        hidden = None
+        memory = None
+        total_loss = 0.0
+        total_predicted_tokens = 0
+
+        # Process input sequence first
+        pos = 0
+        while pos < Lx:
+            chunk_end = min(pos + chunk_size, Lx)
+            input_chunk = x_emb[:, pos:chunk_end, :]
+            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            hidden = hidden_new
+            memory = mem_new
+            pos = chunk_end
+
+        # Now process target sequence chunk by chunk
+        pos = 0
+        while pos < Ly - 1:  # -1 because we don't embed the last target token
+            chunk_end = min(pos + chunk_size, Ly - 1)
+            # Only embed the current chunk of target sequence
+            y_chunk = y_ids_unpadded[:, pos:chunk_end]
+            y_emb_chunk = model.embed(y_chunk)
+
+            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=False)
+
+            # Update states
+            hidden = hidden_new
+            memory = mem_new
+
+            # Compute loss for this chunk
+            out_chunk = out_chunk.reshape(-1, out_chunk.size(-1))
+            targets = y_ids_unpadded[:, pos+1:chunk_end+1].reshape(-1)  # shift by 1 for next-token prediction
+
+            if targets.size(0) > 0:  # ensure we have targets
+                chunk_loss = criterion(out_chunk, targets)
+                total_loss += chunk_loss * targets.size(0)
+                total_predicted_tokens += targets.size(0)
+
+            pos = chunk_end
+
+        if total_predicted_tokens == 0:
+            return 0.0
+
+        avg_loss = total_loss / total_predicted_tokens
+        return avg_loss.item()
+
+
+def spsa_step(model, x_ids, y_ids, criterion, learning_rate, epsilon, num_perturbations):
     """Perform a single SPSA step using central difference."""
     # Get current loss
-    with torch.no_grad():
-        x_emb = embed(x_ids)
-        logits, _, _ = model(x_emb, require_gradients=False)
-        current_loss = compute_reverse_loss(logits, y_ids, pad_id).item()
+    current_loss = teacher_forcing_loss_for_spsa(model, x_ids, y_ids, criterion)
 
     # Collect all parameters
-    param_list = list(model.parameters()) + list(embed.parameters())
+    param_list = list(model.parameters()) + list(model.embed.parameters())
 
     # Estimate gradient using random perturbations
     pseudo_gradient = [torch.zeros_like(p) for p in param_list]
@@ -35,19 +94,17 @@ def spsa_step(model, embed, x_ids, y_ids, pad_id, learning_rate, epsilon, num_pe
             for p, pert in zip(param_list, perturbations):
                 p.add_(pert, alpha=epsilon)
 
-            x_emb = embed(x_ids)
-            logits_plus, _, _ = model(x_emb, require_gradients=False)
-            loss_plus = compute_reverse_loss(logits_plus, y_ids, pad_id).item()
+        loss_plus = teacher_forcing_loss_for_spsa(model, x_ids, y_ids, criterion)
 
-            # Restore and apply negative perturbation
+        # Restore and apply negative perturbation
+        with torch.no_grad():
             for p, pert in zip(param_list, perturbations):
                 p.add_(pert, alpha=-2 * epsilon)
 
-            x_emb = embed(x_ids)
-            logits_minus, _, _ = model(x_emb, require_gradients=False)
-            loss_minus = compute_reverse_loss(logits_minus, y_ids, pad_id).item()
+        loss_minus = teacher_forcing_loss_for_spsa(model, x_ids, y_ids, criterion)
 
-            # Restore parameters
+        # Restore parameters
+        with torch.no_grad():
             for p, pert in zip(param_list, perturbations):
                 p.add_(pert, alpha=epsilon)
 
@@ -129,6 +186,9 @@ def test_spsa_config(
                 accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
                 accuracies.append(accuracy)
 
+    x_ids, y_ids = generate_reverse_batch(args.batch_size, args.min_seq_length, args.max_seq_length, args.vocab_size, device)
+    
+    
     elapsed_time = time.time() - start_time
     return losses, accuracies, converged, elapsed_time, step
 
