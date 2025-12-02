@@ -220,10 +220,14 @@ def train_to_convergence(
         if loss_value <= convergence_loss:
             final = True
             if min_seq_length_t < min_seq_length:
-                min_seq_length_t += 1
+                new_min_seq_length_t = min_seq_length_t + 1
+                print(f"Min seq length {min_seq_length_t} -> {new_min_seq_length_t} / {min_seq_length}")
+                min_seq_length_t = new_min_seq_length_t
                 final = False
             if max_seq_length_t < max_seq_length:
-                max_seq_length_t += 1
+                new_max_seq_length_t = max_seq_length_t + 1
+                print(f"Max seq length {max_seq_length_t} -> {new_max_seq_length_t} / {max_seq_length}")
+                max_seq_length_t = new_max_seq_length_t
                 final = False
 
             if final:
