@@ -150,6 +150,9 @@ def test_spsa_config(
         dtype=torch.bfloat16
     )
 
+    # Create criterion
+    criterion = nn.CrossEntropyLoss(ignore_index=PAD).to(device)
+
     # Training loop
     losses = []
     accuracies = []
@@ -163,7 +166,7 @@ def test_spsa_config(
 
         # SPSA optimization step
         loss = spsa_step(
-            model, embed, x_ids, y_ids, PAD,
+            model, x_ids, y_ids, criterion,
             args.learning_rate, epsilon, args.num_perturbations
         )
 
