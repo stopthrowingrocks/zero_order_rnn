@@ -257,19 +257,51 @@ def train_to_convergence(args, device):
 
     epsilon = args.learning_rate  # For SPSA, epsilon = learning_rate
 
-    # Create model
-    embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.bfloat16)
-    model = LSTM(
-        input_size=args.input_size,
-        output_size=args.vocab_size,
-        hidden_size=args.hidden_size,
-        memory_size=0,
-        head_size=args.hidden_size // args.num_heads,
-        num_heads=args.num_heads,
-        embed=embed,
-        device=device,
-        dtype=torch.bfloat16
-    )
+    # Load model from checkpoint if resuming
+    if args.resume:
+        print(f"Loading checkpoint from {args.resume}...")
+        checkpoint = torch.load(args.resume, map_location=device)
+
+        # Override args with checkpoint config to ensure consistency
+        args.vocab_size = checkpoint['vocab_size']
+        args.hidden_size = checkpoint['hidden_size']
+        args.input_size = checkpoint['input_size']
+        args.num_heads = checkpoint['num_heads']
+
+        # Create model with checkpoint config
+        embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.bfloat16)
+        model = LSTM(
+            input_size=args.input_size,
+            output_size=args.vocab_size,
+            hidden_size=args.hidden_size,
+            memory_size=0,
+            head_size=args.hidden_size // args.num_heads,
+            num_heads=args.num_heads,
+            embed=embed,
+            device=device,
+            dtype=torch.bfloat16
+        )
+
+        # Load weights
+        model.load_state_dict(checkpoint['model_state_dict'])
+        embed.load_state_dict(checkpoint['embed_state_dict'])
+
+        print(f"✓ Loaded checkpoint (previous steps: {checkpoint.get('steps', 'unknown')}, " +
+              f"previous loss: {checkpoint.get('final_loss', 'unknown'):.6f})")
+    else:
+        # Create fresh model
+        embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.bfloat16)
+        model = LSTM(
+            input_size=args.input_size,
+            output_size=args.vocab_size,
+            hidden_size=args.hidden_size,
+            memory_size=0,
+            head_size=args.hidden_size // args.num_heads,
+            num_heads=args.num_heads,
+            embed=embed,
+            device=device,
+            dtype=torch.bfloat16
+        )
 
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters()) + sum(p.numel() for p in embed.parameters())
@@ -422,6 +454,7 @@ def main():
     # Other settings
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda or cpu)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    parser.add_argument('--resume', type=str, default=None, help='Path to model checkpoint to resume training from')
 
     args = parser.parse_args()
 
