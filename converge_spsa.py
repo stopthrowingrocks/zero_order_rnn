@@ -381,11 +381,13 @@ def train_to_convergence(args, device):
                 new_min_seq_length_t = min_seq_length_t + 1
                 print(f"Min seq length {min_seq_length_t} -> {new_min_seq_length_t} / {args.min_seq_length}")
                 min_seq_length_t = new_min_seq_length_t
+                best_loss = float('inf')  # Reset best_loss for new curriculum stage
                 final = False
             if max_seq_length_t < args.max_seq_length:
                 new_max_seq_length_t = max_seq_length_t + 1
                 print(f"Max seq length {max_seq_length_t} -> {new_max_seq_length_t} / {args.max_seq_length}")
                 max_seq_length_t = new_max_seq_length_t
+                best_loss = float('inf')  # Reset best_loss for new curriculum stage
                 final = False
 
             if final:
