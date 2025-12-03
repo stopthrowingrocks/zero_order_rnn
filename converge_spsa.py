@@ -392,6 +392,8 @@ def train_to_convergence(args, device):
         'best_loss': best_loss,
         'steps': step + 1,
         'elapsed_time': elapsed_time,
+        'model': model,
+        'embed': embed,
     }
 
 
@@ -434,6 +436,21 @@ def main():
     print(f"  Best loss: {result['best_loss']:.6f}")
     print(f"  Steps: {result['steps']}")
     print(f"  Time: {result['elapsed_time']:.2f}s")
+
+    # Save model
+    model_path = 'spsa_model.pt'
+    torch.save({
+        'model_state_dict': result['model'].state_dict(),
+        'embed_state_dict': result['embed'].state_dict(),
+        'vocab_size': args.vocab_size,
+        'hidden_size': args.hidden_size,
+        'input_size': args.input_size,
+        'num_heads': args.num_heads,
+        'converged': result['converged'],
+        'final_loss': result['final_loss'],
+        'steps': result['steps'],
+    }, model_path)
+    print(f"\n✓ Model saved to {model_path}")
 
 
 if __name__ == '__main__':
