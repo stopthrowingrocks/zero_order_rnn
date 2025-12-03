@@ -202,7 +202,7 @@ def train_to_convergence(args, device):
     print(f"Task: Reverse sequences of length {args.min_seq_length}-{args.max_seq_length}")
     print(f"Vocab size: {args.vocab_size}, Hidden size: {args.hidden_size}, Input size: {args.input_size}")
     print(f"Num heads: {args.num_heads}, Total params: {total_params:,}")
-    print(f"Learning rate: {args.learning_rate}, Num perturbations: {args.num_perturbations}, Batch size: {batch_size}")
+    print(f"Learning rate: {args.learning_rate}, Num perturbations: {args.num_perturbations}, Batch size: {args.batch_size}")
     print(f"Convergence criterion: loss <= {args.convergence_loss}")
     print(f"Max steps: {args.max_steps}")
     if WANDB_AVAILABLE:
@@ -221,7 +221,7 @@ def train_to_convergence(args, device):
         step_start = time.time()
 
         # Generate batch
-        x_ids, y_ids = generate_reverse_batch(args.batch_size, min_seq_length_t, max_seq_length_t, vocab_size, device)
+        x_ids, y_ids = generate_reverse_batch(args.batch_size, min_seq_length_t, max_seq_length_t, args.vocab_size, device)
 
         # SPSA step
         loss_value, grad_norm = spsa_step(
