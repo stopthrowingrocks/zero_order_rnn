@@ -306,6 +306,11 @@ def train_to_convergence(args, device):
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters()) + sum(p.numel() for p in embed.parameters())
 
+    # Save initial parameters for drift calculation
+    initial_params = []
+    for p in list(model.parameters()) + list(embed.parameters()):
+        initial_params.append(p.detach().clone())
+
     # Create loss
     criterion = nn.CrossEntropyLoss(ignore_index=PAD).to(device)
 
@@ -430,6 +435,7 @@ def train_to_convergence(args, device):
         'elapsed_time': elapsed_time,
         'model': model,
         'embed': embed,
+        'initial_params': initial_params,
     }
 
 
@@ -473,6 +479,39 @@ def main():
     print(f"  Best loss: {result['best_loss']:.6f}")
     print(f"  Steps: {result['steps']}")
     print(f"  Time: {result['elapsed_time']:.2f}s")
+
+    # Calculate parameter drift from initial parameters
+    print()
+    print("=" * 80)
+    print("PARAMETER DRIFT ANALYSIS")
+    print("=" * 80)
+
+    current_params = list(result['model'].parameters()) + list(result['embed'].parameters())
+    initial_params = result['initial_params']
+
+    # Calculate L2 norm of drift for each parameter
+    total_drift_l2 = 0.0
+    total_drift_linf = 0.0
+    total_initial_norm = 0.0
+
+    for p_init, p_curr in zip(initial_params, current_params):
+        drift = p_curr - p_init
+        drift_l2 = drift.norm(p=2).item()
+        drift_linf = drift.abs().max().item()
+        initial_norm = p_init.norm(p=2).item()
+
+        total_drift_l2 += drift_l2 ** 2
+        total_drift_linf = max(total_drift_linf, drift_linf)
+        total_initial_norm += initial_norm ** 2
+
+    total_drift_l2 = total_drift_l2 ** 0.5
+    total_initial_norm = total_initial_norm ** 0.5
+
+    print(f"Total parameter L2 norm (initial): {total_initial_norm:.6f}")
+    print(f"Total parameter drift L2 norm: {total_drift_l2:.6f}")
+    print(f"Total parameter drift L∞ norm: {total_drift_linf:.6f}")
+    print(f"Relative drift (L2): {(total_drift_l2 / total_initial_norm):.6f}")
+    print("=" * 80)
 
     # Save model
     model_path = 'spsa_model.pt'
