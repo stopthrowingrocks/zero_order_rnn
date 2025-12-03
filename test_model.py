@@ -126,63 +126,82 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
     print(f"  Logits device: {logits.device}")
     print()
 
-    # Show example predictions
+    # Show predictions for all samples
     SEP = vocab_size - 3
     PAD = vocab_size - 1
 
-    print("Sample predictions (first example in batch):")
-    print("-" * 80)
+    print("Predictions for all samples in batch:")
+    print("=" * 80)
 
-    # Get first example
-    x_sample = x_ids[0].cpu().numpy()
-    y_sample = y_ids[0].cpu().numpy()
-    pred_sample = logits[0].argmax(dim=-1).cpu().numpy()
+    # Get all samples
+    x_samples = x_ids.cpu().numpy()
+    y_samples = y_ids.cpu().numpy()
+    pred_samples = logits.argmax(dim=-1).cpu().numpy()
 
-    # Find SEP position in input
-    sep_pos_x = None
-    for i, token in enumerate(x_sample):
-        if token == SEP:
-            sep_pos_x = i
-            break
+    total_correct_all = 0
+    total_tokens_all = 0
 
-    # Display input sequence (before SEP)
-    if sep_pos_x is not None:
-        input_seq = x_sample[:sep_pos_x]
-        print(f"Input:  {list(input_seq)}")
-    else:
-        print(f"Input:  {list(x_sample)}")
+    for batch_idx in range(batch_size):
+        print(f"\nSample {batch_idx + 1}/{batch_size}:")
+        print("-" * 80)
 
-    # Find SEP position in target
-    sep_pos_y = None
-    for i, token in enumerate(y_sample):
-        if token == SEP:
-            sep_pos_y = i
-            break
+        x_sample = x_samples[batch_idx]
+        y_sample = y_samples[batch_idx]
+        pred_sample = pred_samples[batch_idx]
 
-    # Display target and prediction (after SEP, before PAD)
-    # Note: predictions are for next tokens, so pred[i] predicts y[i+1]
-    if sep_pos_y is not None:
-        target_tokens = []
-        pred_tokens = []
-        for i in range(sep_pos_y + 1, len(y_sample)):
-            if y_sample[i] == PAD:
+        # Find SEP position in input
+        sep_pos_x = None
+        for i, token in enumerate(x_sample):
+            if token == SEP:
+                sep_pos_x = i
                 break
-            target_tokens.append(int(y_sample[i]))
-            # Prediction at position (i-1) predicts token at position i
-            pred_idx = i - 1
-            if pred_idx >= 0 and pred_idx < len(pred_sample):
-                pred_tokens.append(int(pred_sample[pred_idx]))
 
-        print(f"Target: {target_tokens}")
-        print(f"Pred:   {pred_tokens}")
+        # Display input sequence (before SEP)
+        if sep_pos_x is not None:
+            input_seq = x_sample[:sep_pos_x]
+            print(f"Input:  {list(input_seq)}")
+        else:
+            print(f"Input:  {list(x_sample)}")
 
-        # Check accuracy
-        if len(target_tokens) > 0 and len(pred_tokens) == len(target_tokens):
-            correct = sum(1 for t, p in zip(target_tokens, pred_tokens) if t == p)
-            accuracy = correct / len(target_tokens)
-            print(f"Accuracy: {correct}/{len(target_tokens)} = {accuracy:.2%}")
+        # Find SEP position in target
+        sep_pos_y = None
+        for i, token in enumerate(y_sample):
+            if token == SEP:
+                sep_pos_y = i
+                break
 
-    print("-" * 80)
+        # Display target and prediction (after SEP, before PAD)
+        # Note: predictions are for next tokens, so pred[i] predicts y[i+1]
+        if sep_pos_y is not None:
+            target_tokens = []
+            pred_tokens = []
+            for i in range(sep_pos_y + 1, len(y_sample)):
+                if y_sample[i] == PAD:
+                    break
+                target_tokens.append(int(y_sample[i]))
+                # Prediction at position (i-1) predicts token at position i
+                pred_idx = i - 1
+                if pred_idx >= 0 and pred_idx < len(pred_sample):
+                    pred_tokens.append(int(pred_sample[pred_idx]))
+
+            print(f"Target: {target_tokens}")
+            print(f"Pred:   {pred_tokens}")
+
+            # Check accuracy
+            if len(target_tokens) > 0 and len(pred_tokens) == len(target_tokens):
+                correct = sum(1 for t, p in zip(target_tokens, pred_tokens) if t == p)
+                accuracy = correct / len(target_tokens)
+                print(f"Accuracy: {correct}/{len(target_tokens)} = {accuracy:.2%}")
+
+                total_correct_all += correct
+                total_tokens_all += len(target_tokens)
+
+    # Overall accuracy
+    print("\n" + "=" * 80)
+    if total_tokens_all > 0:
+        overall_accuracy = total_correct_all / total_tokens_all
+        print(f"Overall Accuracy: {total_correct_all}/{total_tokens_all} = {overall_accuracy:.2%}")
+    print("=" * 80)
     print()
 
     return logits, x_ids, y_ids
