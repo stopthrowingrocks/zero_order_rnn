@@ -71,7 +71,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
     print(f"  Target shape: {y_ids.shape}")
     print()
 
-    # Run inference
+    # Run inference with teacher forcing (same as training)
     with torch.no_grad():
         x_emb = embed(x_ids)
 
@@ -80,8 +80,45 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         if x_emb.dtype != next_param.dtype:
             x_emb = x_emb.to(dtype=next_param.dtype)
 
-        # Forward pass
-        logits, memory, hidden = model(x_emb, require_gradients=False)
+        Lx = x_emb.shape[1]
+        Ly = y_ids.shape[1]
+
+        hidden = None
+        memory = None
+        chunk_size = 32
+
+        # Process input sequence first
+        pos = 0
+        while pos < Lx:
+            chunk_end = min(pos + chunk_size, Lx)
+            input_chunk = x_emb[:, pos:chunk_end, :]
+            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            hidden = hidden_new
+            memory = mem_new
+            pos = chunk_end
+
+        # Now process target sequence chunk by chunk and collect predictions
+        all_logits = []
+        pos = 0
+        while pos < Ly - 1:
+            chunk_end = min(pos + chunk_size, Ly - 1)
+            y_chunk = y_ids[:, pos:chunk_end]
+            y_emb_chunk = embed(y_chunk)
+
+            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            hidden = hidden_new
+            memory = mem_new
+
+            # Collect logits for this chunk
+            all_logits.append(out_chunk)
+
+            pos = chunk_end
+
+        # Concatenate all logits
+        if all_logits:
+            logits = torch.cat(all_logits, dim=1)  # [B, Ly-1, vocab_size]
+        else:
+            logits = torch.zeros(batch_size, 0, vocab_size, device=device, dtype=next_param.dtype)
 
     print(f"Inference complete:")
     print(f"  Logits shape: {logits.shape}")
@@ -123,6 +160,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
             break
 
     # Display target and prediction (after SEP, before PAD)
+    # Note: predictions are for next tokens, so pred[i] predicts y[i+1]
     if sep_pos_y is not None:
         target_tokens = []
         pred_tokens = []
@@ -130,9 +168,10 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
             if y_sample[i] == PAD:
                 break
             target_tokens.append(int(y_sample[i]))
-            # Prediction position is offset by sep_pos_y
-            if i < len(pred_sample):
-                pred_tokens.append(int(pred_sample[i]))
+            # Prediction at position (i-1) predicts token at position i
+            pred_idx = i - 1
+            if pred_idx >= 0 and pred_idx < len(pred_sample):
+                pred_tokens.append(int(pred_sample[pred_idx]))
 
         print(f"Target: {target_tokens}")
         print(f"Pred:   {pred_tokens}")
