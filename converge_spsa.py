@@ -323,7 +323,7 @@ def train_to_convergence(args, device):
     print(f"Num heads: {args.num_heads}, Total params: {total_params:,}")
     print(f"Learning rate: {args.learning_rate}, Num perturbations: {args.num_perturbations}, Batch size: {args.batch_size}")
     print(f"Convergence criterion: loss <= {args.convergence_loss}")
-    print(f"Max steps: {args.max_steps}")
+    print(f"Max time: {args.max_time}s")
     if WANDB_AVAILABLE:
         print(f"Weights & Biases: Enabled (project: zero-order-rnn)")
     print("=" * 80)
@@ -335,8 +335,9 @@ def train_to_convergence(args, device):
     best_loss = float('inf')
     min_seq_length_t = args.min_seq_length_start
     max_seq_length_t = args.max_seq_length_start
+    step = 0
 
-    for step in range(args.max_steps):
+    while time.time() - start_time < args.max_time:
         step_start = time.time()
 
         # Generate batch
@@ -407,10 +408,12 @@ def train_to_convergence(args, device):
                 print("=" * 80)
                 break
 
+        step += 1
+
     if not converged:
         print()
         print("=" * 80)
-        print(f"⚠ DID NOT CONVERGE after {args.max_steps} steps")
+        print(f"⚠ DID NOT CONVERGE after {elapsed_time:.2f}s ({step} steps)")
         print(f"  Final loss: {loss_value:.6f} > {args.convergence_loss}")
         print(f"  Best loss: {best_loss:.6f}")
         print(f"  Elapsed time: {elapsed_time:.2f}s")
@@ -457,7 +460,7 @@ def main():
     parser.add_argument('--num_perturbations', type=int, default=8, help='Number of SPSA perturbations')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--convergence_loss', type=float, default=0.1, help='Loss threshold for convergence')
-    parser.add_argument('--max_steps', type=int, default=10000, help='Maximum training steps')
+    parser.add_argument('--max_time', type=float, default=600.0, help='Maximum training time in seconds')
 
     # Other settings
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda or cpu)')
