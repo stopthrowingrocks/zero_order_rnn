@@ -10,7 +10,7 @@ import argparse
 import torch
 import torch.nn as nn
 from models.models import LSTM
-from shared import generate_reverse_batch
+from shared import compute_accuracy, generate_reverse_batch
 
 
 def load_model(model_path, device='cuda'):
@@ -202,6 +202,8 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         overall_accuracy = total_correct_all / total_tokens_all
         print(f"Overall Accuracy: {total_correct_all}/{total_tokens_all} = {overall_accuracy:.2%}")
     print("=" * 80)
+    other_accuracy = compute_accuracy(model, x_ids, y_ids, SEP, PAD, chunk_size=32)
+    print(f"Other accuracy: {other_accuracy}")
     print()
 
     return logits, x_ids, y_ids
