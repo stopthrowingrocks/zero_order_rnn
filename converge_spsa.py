@@ -466,6 +466,7 @@ def main():
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda or cpu)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--resume', type=str, default=None, help='Path to model checkpoint to resume training from')
+    parser.add_argument('--save_to', type=str, default="spsa_model.pt", help='Path to save model checkpoint at')
 
     args = parser.parse_args()
 
@@ -517,7 +518,6 @@ def main():
     print("=" * 80)
 
     # Save model
-    model_path = 'spsa_model.pt'
     torch.save({
         'model_state_dict': result['model'].state_dict(),
         'embed_state_dict': result['embed'].state_dict(),
@@ -528,8 +528,8 @@ def main():
         'converged': result['converged'],
         'final_loss': result['final_loss'],
         'steps': result['steps'],
-    }, model_path)
-    print(f"\n✓ Model saved to {model_path}")
+    }, args.save_to)
+    print(f"\n✓ Model saved to {args.save_to}")
 
 
 if __name__ == '__main__':
