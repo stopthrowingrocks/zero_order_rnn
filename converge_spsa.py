@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from models.models import LSTM
-from shared import generate_reverse_batch, compute_reverse_accuracy
+from shared import generate_reverse_batch
 
 # Optional wandb import
 try:
@@ -39,7 +39,8 @@ def teacher_forcing_loss_for_spsa(model, x_ids, y_ids_unpadded, criterion, chunk
 
         hidden = None
         memory = None
-        total_loss = 0.0
+        # Use float32 for loss accumulation to avoid bfloat16 precision issues
+        total_loss = torch.tensor(0.0, dtype=torch.float32, device=x_ids.device)
         total_predicted_tokens = 0
 
         # Process input sequence first
@@ -72,7 +73,8 @@ def teacher_forcing_loss_for_spsa(model, x_ids, y_ids_unpadded, criterion, chunk
 
             if targets.size(0) > 0:  # ensure we have targets
                 chunk_loss = criterion(out_chunk, targets)
-                total_loss += chunk_loss * targets.size(0)
+                # Convert to float32 before accumulation to avoid bfloat16 precision issues
+                total_loss += chunk_loss.float() * targets.size(0)
                 total_predicted_tokens += targets.size(0)
 
             pos = chunk_end
@@ -82,6 +84,84 @@ def teacher_forcing_loss_for_spsa(model, x_ids, y_ids_unpadded, criterion, chunk
 
         avg_loss = total_loss / total_predicted_tokens
         return avg_loss.item()
+
+
+def compute_accuracy_iterative(model, x_ids, y_ids, sep_id, pad_id, chunk_size=32):
+    """
+    Compute accuracy using iterative teacher forcing (same as loss computation).
+    This ensures accuracy is measured on the full autoregressive generation.
+    """
+    with torch.no_grad():
+        x_emb = model.embed(x_ids)
+
+        next_param = next(model.parameters())
+        if x_emb.dtype != next_param.dtype:
+            x_emb = x_emb.to(dtype=next_param.dtype)
+        Lx = x_emb.shape[1]
+        Ly = y_ids.shape[1]
+
+        B = x_ids.shape[0]
+
+        hidden = None
+        memory = None
+
+        # Process input sequence first
+        pos = 0
+        while pos < Lx:
+            chunk_end = min(pos + chunk_size, Lx)
+            input_chunk = x_emb[:, pos:chunk_end, :]
+            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            hidden = hidden_new
+            memory = mem_new
+            pos = chunk_end
+
+        # Now process target sequence chunk by chunk and collect predictions
+        all_predictions = []
+        pos = 0
+        while pos < Ly - 1:
+            chunk_end = min(pos + chunk_size, Ly - 1)
+            y_chunk = y_ids[:, pos:chunk_end]
+            y_emb_chunk = model.embed(y_chunk)
+
+            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            hidden = hidden_new
+            memory = mem_new
+
+            # Get predictions for this chunk
+            preds_chunk = out_chunk.argmax(dim=-1)  # [B, chunk_len]
+            all_predictions.append(preds_chunk)
+
+            pos = chunk_end
+
+        # Concatenate all predictions
+        if all_predictions:
+            preds = torch.cat(all_predictions, dim=1)  # [B, Ly-1]
+        else:
+            return 0.0
+
+        # Compute accuracy only on output part (after SEP token)
+        total_correct = 0
+        total_tokens = 0
+
+        for b in range(B):
+            sep_positions = (y_ids[b] == sep_id).nonzero(as_tuple=True)[0]
+            if len(sep_positions) == 0:
+                continue
+            sep_pos = sep_positions[0].item()
+
+            # Check predictions after SEP
+            for t in range(sep_pos, min(sep_pos + preds.shape[1], Ly - 1)):
+                target_pos = t + 1  # Shift by 1 for next-token prediction
+                if target_pos >= Ly or y_ids[b, target_pos] == pad_id:
+                    break
+
+                pred_pos = t - sep_pos
+                if pred_pos >= 0 and pred_pos < preds.shape[1]:
+                    if preds[b, pred_pos] == y_ids[b, target_pos]:
+                        total_correct += 1
+                    total_tokens += 1
+
+        return total_correct / max(total_tokens, 1)
 
 
 def spsa_step(model, x_ids, y_ids, criterion, learning_rate, epsilon, num_perturbations):
@@ -233,13 +313,10 @@ def train_to_convergence(args, device):
         step_time = time.time() - step_start
         elapsed_time = time.time() - start_time
 
-        # Compute accuracy periodically
+        # Compute accuracy periodically using iterative teacher forcing
         accuracy = None
         if step % 10 == 0 or loss_value <= args.convergence_loss:
-            with torch.no_grad():
-                x_emb = embed(x_ids)
-                logits, _, _ = model(x_emb, require_gradients=False)
-                accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
+            accuracy = compute_accuracy_iterative(model, x_ids, y_ids, SEP, PAD)
 
         # Log to wandb
         if WANDB_AVAILABLE:
