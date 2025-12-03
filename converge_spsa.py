@@ -267,7 +267,7 @@ def train_to_convergence(
         # Check convergence
         if loss_value <= convergence_loss:
             final = True
-            if min_seq_length_t < min_seq_length:
+            if min_seq_length_t < min_seq_length and min_seq_length_t < max_seq_length_t * 2:
                 new_min_seq_length_t = min_seq_length_t + 1
                 print(f"Min seq length {min_seq_length_t} -> {new_min_seq_length_t} / {min_seq_length}")
                 min_seq_length_t = new_min_seq_length_t
