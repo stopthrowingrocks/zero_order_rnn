@@ -73,7 +73,7 @@ def compute_accuracy(model, x_ids, y_ids, sep_id, pad_id, chunk_size=32):
             pos = chunk_end
 
         # Now process target sequence chunk by chunk and collect predictions
-        all_predictions = []
+        all_logits = []
         pos = 0
         while pos < Ly - 1:
             chunk_end = min(pos + chunk_size, Ly - 1)
@@ -84,17 +84,19 @@ def compute_accuracy(model, x_ids, y_ids, sep_id, pad_id, chunk_size=32):
             hidden = hidden_new
             memory = mem_new
 
-            # Get predictions for this chunk
-            preds_chunk = out_chunk.argmax(dim=-1)  # [B, chunk_len]
-            all_predictions.append(preds_chunk)
+            # Collect logits for this chunk
+            all_logits.append(out_chunk)
 
             pos = chunk_end
 
-        # Concatenate all predictions
-        if all_predictions:
-            preds = torch.cat(all_predictions, dim=1)  # [B, Ly-1]
+        # Concatenate all logits
+        if all_logits:
+            logits = torch.cat(all_logits, dim=1)  # [B, Ly-1, vocab_size]
         else:
             return 0.0
+
+        # Get predictions
+        preds = logits.argmax(dim=-1)  # [B, Ly-1]
 
         # Compute accuracy only on output part (after SEP token)
         # Note: preds[b, i] predicts y_ids[b, i+1] (next-token prediction)
