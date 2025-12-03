@@ -43,26 +43,81 @@ def compute_reverse_loss(logits, targets, pad_id):
     )
     return loss
 
+def compute_accuracy(model, x_ids, y_ids, sep_id, pad_id, chunk_size=32):
+    """
+    Compute accuracy using iterative teacher forcing (same as loss computation).
+    This ensures accuracy is measured on the full autoregressive generation.
+    """
+    with torch.no_grad():
+        x_emb = model.embed(x_ids)
 
-def compute_reverse_accuracy(logits, targets, sep_id, pad_id):
-    """Compute accuracy only on the output part (after SEP token)."""
-    B, T, V = logits.shape
-    preds = logits.argmax(dim=-1)
+        next_param = next(model.parameters())
+        if x_emb.dtype != next_param.dtype:
+            x_emb = x_emb.to(dtype=next_param.dtype)
+        Lx = x_emb.shape[1]
+        Ly = y_ids.shape[1]
 
-    total_correct = 0
-    total_tokens = 0
+        B = x_ids.shape[0]
 
-    for b in range(B):
-        sep_positions = (targets[b] == sep_id).nonzero(as_tuple=True)[0]
-        if len(sep_positions) == 0:
-            continue
-        sep_pos = sep_positions[0].item()
+        hidden = None
+        memory = None
 
-        for t in range(sep_pos + 1, T):
-            if targets[b, t] == pad_id:
-                break
-            if preds[b, t] == targets[b, t]:
-                total_correct += 1
-            total_tokens += 1
+        # Process input sequence first
+        pos = 0
+        while pos < Lx:
+            chunk_end = min(pos + chunk_size, Lx)
+            input_chunk = x_emb[:, pos:chunk_end, :]
+            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            hidden = hidden_new
+            memory = mem_new
+            pos = chunk_end
 
-    return total_correct / max(total_tokens, 1)
+        # Now process target sequence chunk by chunk and collect predictions
+        all_predictions = []
+        pos = 0
+        while pos < Ly - 1:
+            chunk_end = min(pos + chunk_size, Ly - 1)
+            y_chunk = y_ids[:, pos:chunk_end]
+            y_emb_chunk = model.embed(y_chunk)
+
+            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            hidden = hidden_new
+            memory = mem_new
+
+            # Get predictions for this chunk
+            preds_chunk = out_chunk.argmax(dim=-1)  # [B, chunk_len]
+            all_predictions.append(preds_chunk)
+
+            pos = chunk_end
+
+        # Concatenate all predictions
+        if all_predictions:
+            preds = torch.cat(all_predictions, dim=1)  # [B, Ly-1]
+        else:
+            return 0.0
+
+        # Compute accuracy only on output part (after SEP token)
+        # Note: preds[b, i] predicts y_ids[b, i+1] (next-token prediction)
+        total_correct = 0
+        total_tokens = 0
+
+        for b in range(B):
+            sep_positions = (y_ids[b] == sep_id).nonzero(as_tuple=True)[0]
+            if len(sep_positions) == 0:
+                continue
+            sep_pos = sep_positions[0].item()
+
+            # Check predictions after SEP token
+            # Iterate through output positions (after SEP, before PAD)
+            for i in range(sep_pos + 1, Ly):
+                if y_ids[b, i] == pad_id:
+                    break
+
+                # Prediction at position (i-1) predicts token at position i
+                pred_idx = i - 1
+                if pred_idx >= 0 and pred_idx < preds.shape[1]:
+                    if preds[b, pred_idx] == y_ids[b, i]:
+                        total_correct += 1
+                    total_tokens += 1
+
+        return total_correct / max(total_tokens, 1)

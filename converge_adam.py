@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from models.models import LSTM
-from shared import generate_reverse_batch, compute_reverse_loss, compute_reverse_accuracy
+from shared import generate_reverse_batch, compute_reverse_loss, compute_accuracy
 
 # Optional wandb import
 try:
@@ -225,13 +225,10 @@ def train_to_convergence(
         step_time = time.time() - step_start
         elapsed_time = time.time() - start_time
 
-        # Compute accuracy periodically
+        # Compute accuracy periodically using iterative teacher forcing
         accuracy = None
         if step % 10 == 0 or loss_value <= args.convergence_loss:
-            with torch.no_grad():
-                x_emb = embed(x_ids)
-                logits, _, _ = model(x_emb, require_gradients=False)
-                accuracy = compute_reverse_accuracy(logits, y_ids, SEP, PAD)
+            accuracy = compute_accuracy(model, x_ids, y_ids, SEP, PAD)
 
         # Log to wandb
         if WANDB_AVAILABLE:
