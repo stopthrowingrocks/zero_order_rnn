@@ -140,6 +140,7 @@ def compute_accuracy_iterative(model, x_ids, y_ids, sep_id, pad_id, chunk_size=3
             return 0.0
 
         # Compute accuracy only on output part (after SEP token)
+        # Note: preds[b, i] predicts y_ids[b, i+1] (next-token prediction)
         total_correct = 0
         total_tokens = 0
 
@@ -149,15 +150,16 @@ def compute_accuracy_iterative(model, x_ids, y_ids, sep_id, pad_id, chunk_size=3
                 continue
             sep_pos = sep_positions[0].item()
 
-            # Check predictions after SEP
-            for t in range(sep_pos, min(sep_pos + preds.shape[1], Ly - 1)):
-                target_pos = t + 1  # Shift by 1 for next-token prediction
-                if target_pos >= Ly or y_ids[b, target_pos] == pad_id:
+            # Check predictions after SEP token
+            # Iterate through output positions (after SEP, before PAD)
+            for i in range(sep_pos + 1, Ly):
+                if y_ids[b, i] == pad_id:
                     break
 
-                pred_pos = t - sep_pos
-                if pred_pos >= 0 and pred_pos < preds.shape[1]:
-                    if preds[b, pred_pos] == y_ids[b, target_pos]:
+                # Prediction at position (i-1) predicts token at position i
+                pred_idx = i - 1
+                if pred_idx >= 0 and pred_idx < preds.shape[1]:
+                    if preds[b, pred_idx] == y_ids[b, i]:
                         total_correct += 1
                     total_tokens += 1
 
