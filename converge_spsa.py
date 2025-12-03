@@ -138,53 +138,52 @@ def spsa_step(model, x_ids, y_ids, criterion, learning_rate, epsilon, num_pertur
     return current_loss, grad_norm
 
 
-def train_to_convergence(
-    vocab_size, min_seq_length, max_seq_length, hidden_size, input_size, num_heads,
-    learning_rate, num_perturbations, batch_size, convergence_loss, max_steps, device, seed
-):
+def train_to_convergence(args, device):
     """Train model with SPSA to convergence with wandb logging."""
 
     # Initialize wandb if requested
     if WANDB_AVAILABLE:
         wandb.init(
             project="zero-order-rnn",
-            name=f"spsa_lr_{learning_rate}_pert_{num_perturbations}_batch_{batch_size}_max_seq_{max_seq_length}",
+            name=f"spsa_lr_{args.learning_rate}_pert_{args.num_perturbations}_batch_{args.batch_size}_max_seq_{max_seq_length}",
             config={
                 "optimizer": "spsa",
-                "vocab_size": vocab_size,
-                "min_seq_length": min_seq_length,
-                "max_seq_length": max_seq_length,
-                "hidden_size": hidden_size,
-                "input_size": input_size,
-                "num_heads": num_heads,
-                "learning_rate": learning_rate,
-                "num_perturbations": num_perturbations,
-                "batch_size": batch_size,
-                "convergence_loss": convergence_loss,
-                "seed": seed,
+                "vocab_size": args.vocab_size,
+                "min_seq_length": args.min_seq_length,
+                "max_seq_length": args.max_seq_length,
+                "min_seq_length_start": args.min_seq_length_start,
+                "max_seq_length_start": args.max_seq_length_start,
+                "hidden_size": args.hidden_size,
+                "input_size": args.input_size,
+                "num_heads": args.num_heads,
+                "learning_rate": args.learning_rate,
+                "num_perturbations": args.num_perturbations,
+                "batch_size": args.batch_size,
+                "convergence_loss": args.convergence_loss,
+                "seed": args.seed,
             }
         )
 
     # Set seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
 
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
-    SEP = vocab_size - 3
-    PAD = vocab_size - 1
+    SEP = args.vocab_size - 3
+    PAD = args.vocab_size - 1
 
-    epsilon = learning_rate  # For SPSA, epsilon = learning_rate
+    epsilon = args.learning_rate  # For SPSA, epsilon = learning_rate
 
     # Create model
-    embed = nn.Embedding(vocab_size, input_size, device=device, dtype=torch.bfloat16)
+    embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.bfloat16)
     model = LSTM(
-        input_size=input_size,
-        output_size=vocab_size,
-        hidden_size=hidden_size,
+        input_size=args.input_size,
+        output_size=args.vocab_size,
+        hidden_size=args.hidden_size,
         memory_size=0,
-        head_size=hidden_size // num_heads,
-        num_heads=num_heads,
+        head_size=args.hidden_size // args.num_heads,
+        num_heads=args.num_heads,
         embed=embed,
         device=device,
         dtype=torch.bfloat16
@@ -200,12 +199,12 @@ def train_to_convergence(
     print("TRAINING TO CONVERGENCE WITH SPSA")
     print("=" * 80)
     print(f"Device: {device}")
-    print(f"Task: Reverse sequences of length {min_seq_length}-{max_seq_length}")
-    print(f"Vocab size: {vocab_size}, Hidden size: {hidden_size}, Input size: {input_size}")
-    print(f"Num heads: {num_heads}, Total params: {total_params:,}")
-    print(f"Learning rate: {learning_rate}, Num perturbations: {num_perturbations}, Batch size: {batch_size}")
-    print(f"Convergence criterion: loss <= {convergence_loss}")
-    print(f"Max steps: {max_steps}")
+    print(f"Task: Reverse sequences of length {args.min_seq_length}-{args.max_seq_length}")
+    print(f"Vocab size: {args.vocab_size}, Hidden size: {args.hidden_size}, Input size: {args.input_size}")
+    print(f"Num heads: {args.num_heads}, Total params: {total_params:,}")
+    print(f"Learning rate: {args.learning_rate}, Num perturbations: {args.num_perturbations}, Batch size: {batch_size}")
+    print(f"Convergence criterion: loss <= {args.convergence_loss}")
+    print(f"Max steps: {args.max_steps}")
     if WANDB_AVAILABLE:
         print(f"Weights & Biases: Enabled (project: zero-order-rnn)")
     print("=" * 80)
@@ -215,19 +214,19 @@ def train_to_convergence(
     start_time = time.time()
     converged = False
     best_loss = float('inf')
-    min_seq_length_t = 1
-    max_seq_length_t = 1
+    min_seq_length_t = args.min_seq_length_start
+    max_seq_length_t = args.max_seq_length_start
 
-    for step in range(max_steps):
+    for step in range(args.max_steps):
         step_start = time.time()
 
         # Generate batch
-        x_ids, y_ids = generate_reverse_batch(batch_size, min_seq_length_t, max_seq_length_t, vocab_size, device)
+        x_ids, y_ids = generate_reverse_batch(args.batch_size, min_seq_length_t, max_seq_length_t, vocab_size, device)
 
         # SPSA step
         loss_value, grad_norm = spsa_step(
             model, x_ids, y_ids, criterion,
-            learning_rate, epsilon, num_perturbations
+            args.learning_rate, epsilon, args.num_perturbations
         )
 
         best_loss = min(best_loss, loss_value)
@@ -236,7 +235,7 @@ def train_to_convergence(
 
         # Compute accuracy periodically
         accuracy = None
-        if step % 10 == 0 or loss_value <= convergence_loss:
+        if step % 10 == 0 or loss_value <= args.convergence_loss:
             with torch.no_grad():
                 x_emb = embed(x_ids)
                 logits, _, _ = model(x_emb, require_gradients=False)
@@ -259,22 +258,22 @@ def train_to_convergence(
             wandb.log(log_dict)
 
         # Print progress
-        if step % 10 == 0 or loss_value <= convergence_loss:
+        if step % 10 == 0 or loss_value <= args.convergence_loss:
             acc_str = f", Acc: {accuracy:.4f}" if accuracy is not None else ""
             print(f"Step {step:5d}: Loss={loss_value:.6f}, Best={best_loss:.6f}, "
                   f"Grad={grad_norm:.4f}{acc_str}, Time={step_time:.3f}s, Elapsed={elapsed_time:.3f}")
 
         # Check convergence
-        if loss_value <= convergence_loss:
+        if loss_value <= args.convergence_loss:
             final = True
-            if min_seq_length_t < min_seq_length and min_seq_length_t * 2 <= max_seq_length_t:
+            if min_seq_length_t < args.min_seq_length and min_seq_length_t * 2 <= max_seq_length_t:
                 new_min_seq_length_t = min_seq_length_t + 1
-                print(f"Min seq length {min_seq_length_t} -> {new_min_seq_length_t} / {min_seq_length}")
+                print(f"Min seq length {min_seq_length_t} -> {new_min_seq_length_t} / {args.min_seq_length}")
                 min_seq_length_t = new_min_seq_length_t
                 final = False
-            if max_seq_length_t < max_seq_length:
+            if max_seq_length_t < args.max_seq_length:
                 new_max_seq_length_t = max_seq_length_t + 1
-                print(f"Max seq length {max_seq_length_t} -> {new_max_seq_length_t} / {max_seq_length}")
+                print(f"Max seq length {max_seq_length_t} -> {new_max_seq_length_t} / {args.max_seq_length}")
                 max_seq_length_t = new_max_seq_length_t
                 final = False
 
@@ -283,7 +282,7 @@ def train_to_convergence(
                 print()
                 print("=" * 80)
                 print(f"✓ CONVERGED at step {step}!")
-                print(f"  Final loss: {loss_value:.6f} <= {convergence_loss}")
+                print(f"  Final loss: {loss_value:.6f} <= {args.convergence_loss}")
                 print(f"  Final accuracy: {accuracy:.4f}" if accuracy is not None else "")
                 print(f"  Elapsed time: {elapsed_time:.2f}s")
                 print(f"  Steps per second: {step / elapsed_time:.2f}")
@@ -293,8 +292,8 @@ def train_to_convergence(
     if not converged:
         print()
         print("=" * 80)
-        print(f"⚠ DID NOT CONVERGE after {max_steps} steps")
-        print(f"  Final loss: {loss_value:.6f} > {convergence_loss}")
+        print(f"⚠ DID NOT CONVERGE after {args.max_steps} steps")
+        print(f"  Final loss: {loss_value:.6f} > {args.convergence_loss}")
         print(f"  Best loss: {best_loss:.6f}")
         print(f"  Elapsed time: {elapsed_time:.2f}s")
         print("=" * 80)
@@ -326,6 +325,8 @@ def main():
     parser.add_argument('--vocab_size', type=int, default=64, help='Vocabulary size')
     parser.add_argument('--min_seq_length', type=int, default=5, help='Minimum sequence length')
     parser.add_argument('--max_seq_length', type=int, default=64, help='Maximum sequence length')
+    parser.add_argument('--min_seq_length_start', type=int, default=1, help='Starting minimum sequence length')
+    parser.add_argument('--max_seq_length_start', type=int, default=1, help='Starting maximum sequence length')
     parser.add_argument('--hidden_size', type=int, default=240, help='Hidden size')
     parser.add_argument('--input_size', type=int, default=100, help='Input/embedding size')
     parser.add_argument('--num_heads', type=int, default=20, help='Number of attention heads')
@@ -345,19 +346,8 @@ def main():
 
     # Train to convergence
     result = train_to_convergence(
-        vocab_size=args.vocab_size,
-        min_seq_length=args.min_seq_length,
-        max_seq_length=args.max_seq_length,
-        hidden_size=args.hidden_size,
-        input_size=args.input_size,
-        num_heads=args.num_heads,
-        learning_rate=args.learning_rate,
-        num_perturbations=args.num_perturbations,
-        batch_size=args.batch_size,
-        convergence_loss=args.convergence_loss,
-        max_steps=args.max_steps,
+        args=args,
         device=args.device,
-        seed=args.seed,
     )
 
     print()
