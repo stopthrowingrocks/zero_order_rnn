@@ -145,7 +145,7 @@ def train_to_convergence(args, device):
     if WANDB_AVAILABLE:
         wandb.init(
             project="zero-order-rnn",
-            name=f"spsa_lr_{args.learning_rate}_pert_{args.num_perturbations}_batch_{args.batch_size}_max_seq_{max_seq_length}",
+            name=f"spsa_lr_{args.learning_rate}_pert_{args.num_perturbations}_batch_{args.batch_size}_max_seq_{args.max_seq_length}",
             config={
                 "optimizer": "spsa",
                 "vocab_size": args.vocab_size,
