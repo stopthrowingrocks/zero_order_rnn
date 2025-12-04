@@ -127,7 +127,6 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
     print()
 
     # Show predictions for all samples
-    SEP = vocab_size - 3
     PAD = vocab_size - 1
 
     print("Predictions for all samples in batch:")
@@ -149,19 +148,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         y_sample = y_samples[batch_idx]
         pred_sample = pred_samples[batch_idx]
 
-        # Find SEP position in input (x_ids contains SEP)
-        sep_pos_x = None
-        for i, token in enumerate(x_sample):
-            if token == SEP:
-                sep_pos_x = i
-                break
-
-        # Display input sequence (before SEP in x_ids)
-        if sep_pos_x is not None:
-            input_seq = x_sample[1:sep_pos_x]  # Skip BOS, stop at SEP
-            print(f"Input:  {list(input_seq)}")
-        else:
-            print(f"Input:  {list(x_sample)}")
+        print(f"Input:  {list(x_sample)}")
 
         # Display target and prediction (entire y_ids sequence, excluding PAD)
         # Note: predictions are for next tokens, so pred[i] predicts y[i+1]
