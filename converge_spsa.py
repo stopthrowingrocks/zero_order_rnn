@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from models.models import LSTM
-from shared import generate_reverse_batch, compute_accuracy
+from shared import generate_reverse_batch, compute_accuracy, compute_loss
 
 # Optional wandb import
 try:
@@ -23,73 +23,10 @@ except ImportError:
     print("⚠ wandb not available. Install with: pip install wandb")
 
 
-def teacher_forcing_loss_for_spsa(model, x_ids, y_ids_unpadded, criterion, chunk_size=32):
-    """
-    Teacher forcing loss computation for SPSA (no gradients needed).
-    Processes input and target sequences in chunks to compute loss over all output tokens.
-    """
-    with torch.no_grad():
-        x_emb = model.embed(x_ids)
-
-        next_param = next(model.parameters())
-        if x_emb.dtype != next_param.dtype:
-            x_emb = x_emb.to(dtype=next_param.dtype)
-        Lx = x_emb.shape[1]
-        Ly = y_ids_unpadded.shape[1]
-
-        hidden = None
-        memory = None
-        # Use float32 for loss accumulation to avoid bfloat16 precision issues
-        total_loss = torch.tensor(0.0, dtype=torch.float32, device=x_ids.device)
-        total_predicted_tokens = 0
-
-        # Process input sequence first
-        pos = 0
-        while pos < Lx:
-            chunk_end = min(pos + chunk_size, Lx)
-            input_chunk = x_emb[:, pos:chunk_end, :]
-            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
-            hidden = hidden_new
-            memory = mem_new
-            pos = chunk_end
-
-        # Now process target sequence chunk by chunk
-        pos = 0
-        while pos < Ly - 1:  # -1 because we don't embed the last target token
-            chunk_end = min(pos + chunk_size, Ly - 1)
-            # Only embed the current chunk of target sequence
-            y_chunk = y_ids_unpadded[:, pos:chunk_end]
-            y_emb_chunk = model.embed(y_chunk)
-
-            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=False)
-
-            # Update states
-            hidden = hidden_new
-            memory = mem_new
-
-            # Compute loss for this chunk
-            out_chunk = out_chunk.reshape(-1, out_chunk.size(-1))
-            targets = y_ids_unpadded[:, pos+1:chunk_end+1].reshape(-1)  # shift by 1 for next-token prediction
-
-            if targets.size(0) > 0:  # ensure we have targets
-                chunk_loss = criterion(out_chunk, targets)
-                # Convert to float32 before accumulation to avoid bfloat16 precision issues
-                total_loss += chunk_loss.float() * targets.size(0)
-                total_predicted_tokens += targets.size(0)
-
-            pos = chunk_end
-
-        if total_predicted_tokens == 0:
-            return 0.0
-
-        avg_loss = total_loss / total_predicted_tokens
-        return avg_loss.item()
-
-
 def spsa_step(model, x_ids, y_ids, criterion, learning_rate, epsilon, num_perturbations):
     """Perform a single SPSA step using central difference."""
     # Get current loss
-    current_loss = teacher_forcing_loss_for_spsa(model, x_ids, y_ids, criterion)
+    current_loss = compute_loss(model, x_ids, y_ids, criterion, require_gradients=False).item()
 
     # Collect all parameters
     param_list = list(model.parameters()) + list(model.embed.parameters())
@@ -106,14 +43,14 @@ def spsa_step(model, x_ids, y_ids, criterion, learning_rate, epsilon, num_pertur
             for p, pert in zip(param_list, perturbations):
                 p.add_(pert, alpha=epsilon)
 
-        loss_plus = teacher_forcing_loss_for_spsa(model, x_ids, y_ids, criterion)
+        loss_plus = compute_loss(model, x_ids, y_ids, criterion, require_gradients=False).item()
 
         # Restore and apply negative perturbation
         with torch.no_grad():
             for p, pert in zip(param_list, perturbations):
                 p.add_(pert, alpha=-2 * epsilon)
 
-        loss_minus = teacher_forcing_loss_for_spsa(model, x_ids, y_ids, criterion)
+        loss_minus = compute_loss(model, x_ids, y_ids, criterion, require_gradients=False).item()
 
         # Restore parameters
         with torch.no_grad():

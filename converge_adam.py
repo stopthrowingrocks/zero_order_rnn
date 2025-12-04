@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from models.models import LSTM
-from shared import generate_reverse_batch, compute_reverse_loss, compute_accuracy
+from shared import generate_reverse_batch, compute_accuracy, compute_loss
 
 # Optional wandb import
 try:
@@ -23,64 +23,6 @@ except ImportError:
     print("⚠ wandb not available. Install with: pip install wandb")
 
 
-def teacher_forcing_loss_for_adam(model, x_ids, y_ids_unpadded, criterion, chunk_size=32):
-    """
-    Teacher forcing loss computation for Adam (requires gradients).
-    Similar to teacher_forcing_loss_emb_parallel but keeps gradients.
-    """
-    x_emb = model.embed(x_ids)
-
-    next_param = next(model.parameters())
-    if x_emb.dtype != next_param.dtype:
-        x_emb = x_emb.to(dtype=next_param.dtype)
-    Lx = x_emb.shape[1]
-    Ly = y_ids_unpadded.shape[1]
-
-    hidden = None
-    memory = None
-    total_loss = 0.0
-    total_predicted_tokens = 0
-
-    # Process input sequence first
-    pos = 0
-    while pos < Lx:
-        chunk_end = min(pos + chunk_size, Lx)
-        input_chunk = x_emb[:, pos:chunk_end, :]
-        out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=True)
-        hidden = hidden_new
-        memory = mem_new
-        pos = chunk_end
-
-    # Now process target sequence chunk by chunk
-    pos = 0
-    while pos < Ly - 1:  # -1 because we don't embed the last target token
-        chunk_end = min(pos + chunk_size, Ly - 1)
-        # Only embed the current chunk of target sequence
-        y_chunk = y_ids_unpadded[:, pos:chunk_end]
-        y_emb_chunk = model.embed(y_chunk)
-
-        out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=True)
-
-        # Update states
-        hidden = hidden_new
-        memory = mem_new
-
-        # Compute loss for this chunk (keep in float32 for gradients)
-        out_chunk = out_chunk.reshape(-1, out_chunk.size(-1))
-        targets = y_ids_unpadded[:, pos+1:chunk_end+1].reshape(-1)  # shift by 1 for next-token prediction
-
-        if targets.size(0) > 0:  # ensure we have targets
-            chunk_loss = criterion(out_chunk, targets)
-            total_loss += chunk_loss * targets.size(0)
-            total_predicted_tokens += targets.size(0)
-
-        pos = chunk_end
-
-    if total_predicted_tokens == 0:
-        return torch.tensor(0.0, device=x_ids.device, requires_grad=True)
-
-    avg_loss = total_loss / total_predicted_tokens
-    return avg_loss
 
 
 def train_to_convergence(
@@ -209,7 +151,7 @@ def train_to_convergence(
 
         # Forward pass and backward pass
         optimizer.zero_grad()
-        loss = teacher_forcing_loss_for_adam(model, x_ids, y_ids, criterion)
+        loss = compute_loss(model, x_ids, y_ids, criterion, require_gradients=True)
         loss.backward()
 
         # Compute gradient norm before clipping
