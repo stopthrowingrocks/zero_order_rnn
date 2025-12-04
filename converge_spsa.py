@@ -318,7 +318,7 @@ def main():
     parser.add_argument('--num_perturbations', type=int, default=8, help='Number of SPSA perturbations')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--convergence_loss', type=float, default=0.1, help='Loss threshold for convergence')
-    parser.add_argument('--max_time', type=float, default=600.0, help='Maximum training time in seconds')
+    parser.add_argument('--max_time', type=float, default=60.0, help='Maximum training time in seconds')
 
     # Other settings
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda or cpu)')

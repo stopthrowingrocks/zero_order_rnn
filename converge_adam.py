@@ -270,7 +270,7 @@ def main():
     parser.add_argument('--learning_rate', type=float, default=0.017678, help='Adam learning rate')
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--convergence_loss', type=float, default=0.1, help='Loss threshold for convergence')
-    parser.add_argument('--max_time', type=float, default=600.0, help='Maximum training time in seconds')
+    parser.add_argument('--max_time', type=float, default=60.0, help='Maximum training time in seconds')
 
     # Other settings
     parser.add_argument('--device', type=str, default='cuda', help='Device (cuda or cpu)')
