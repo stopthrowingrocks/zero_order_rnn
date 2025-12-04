@@ -138,8 +138,8 @@ def train_to_convergence(
     start_time = time.time()
     converged = False
     best_loss = float('inf')
-    min_seq_length_t = 1
-    max_seq_length_t = 5
+    min_seq_length_t = args.min_seq_length_start
+    max_seq_length_t = args.max_seq_length_start
     step = 0
 
     while time.time() - start_time < args.max_time:
@@ -260,8 +260,10 @@ def main():
 
     # Model architecture
     parser.add_argument('--vocab_size', type=int, default=64, help='Vocabulary size')
-    parser.add_argument('--min_seq_length', type=int, default=5, help='Minimum sequence length')
+    parser.add_argument('--min_seq_length', type=int, default=1, help='Minimum sequence length')
     parser.add_argument('--max_seq_length', type=int, default=64, help='Maximum sequence length')
+    parser.add_argument('--min_seq_length_start', type=int, default=1, help='Minimum sequence length')
+    parser.add_argument('--max_seq_length_start', type=int, default=3, help='Maximum sequence length')
     parser.add_argument('--hidden_size', type=int, default=240, help='Hidden size')
     parser.add_argument('--input_size', type=int, default=100, help='Input/embedding size')
     parser.add_argument('--num_heads', type=int, default=20, help='Number of attention heads')

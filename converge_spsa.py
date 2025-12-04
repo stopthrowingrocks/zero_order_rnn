@@ -305,10 +305,10 @@ def main():
 
     # Model architecture
     parser.add_argument('--vocab_size', type=int, default=64, help='Vocabulary size')
-    parser.add_argument('--min_seq_length', type=int, default=5, help='Minimum sequence length')
+    parser.add_argument('--min_seq_length', type=int, default=1, help='Minimum sequence length')
     parser.add_argument('--max_seq_length', type=int, default=64, help='Maximum sequence length')
     parser.add_argument('--min_seq_length_start', type=int, default=1, help='Starting minimum sequence length')
-    parser.add_argument('--max_seq_length_start', type=int, default=1, help='Starting maximum sequence length')
+    parser.add_argument('--max_seq_length_start', type=int, default=3, help='Starting maximum sequence length')
     parser.add_argument('--hidden_size', type=int, default=240, help='Hidden size')
     parser.add_argument('--input_size', type=int, default=100, help='Input/embedding size')
     parser.add_argument('--num_heads', type=int, default=20, help='Number of attention heads')
