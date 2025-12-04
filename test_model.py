@@ -100,8 +100,8 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         # Now process target sequence chunk by chunk and collect predictions
         all_logits = []
         pos = 0
-        while pos < Ly - 1:
-            chunk_end = min(pos + chunk_size, Ly - 1)
+        while pos < Ly:
+            chunk_end = min(pos + chunk_size, Ly)
             y_chunk = y_ids[:, pos:chunk_end]
             y_emb_chunk = embed(y_chunk)
 
