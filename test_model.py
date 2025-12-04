@@ -10,7 +10,7 @@ import argparse
 import torch
 import torch.nn as nn
 from models.models import LSTM
-from shared import compute_accuracy, compute_loss, generate_reverse_batch
+from shared import compute_accuracy, compute_loss, generate_reverse_batch, generate_predictions
 
 
 def load_model(model_path, device='cuda'):
@@ -61,7 +61,10 @@ def load_model(model_path, device='cuda'):
 
 
 def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_length, device):
-    """Run inference on a generated batch and return logits."""
+    """Run inference on a generated batch and return logits.
+
+    Note: embed parameter is unused (model.embed is used instead) but kept for backward compatibility.
+    """
     # Generate batch
     x_ids, y_ids = generate_reverse_batch(batch_size, min_seq_length, max_seq_length, vocab_size, device)
 
@@ -72,59 +75,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
     print()
 
     # Run inference with teacher forcing (same as training)
-    with torch.no_grad():
-        x_emb = embed(x_ids)
-
-        # Convert to model dtype if needed
-        next_param = next(model.parameters())
-        if x_emb.dtype != next_param.dtype:
-            x_emb = x_emb.to(dtype=next_param.dtype)
-
-        Lx = x_emb.shape[1]
-        Ly = y_ids.shape[1]
-
-        hidden = None
-        memory = None
-        chunk_size = 32
-
-        # Process input sequence first and collect all logits
-        all_logits = []
-        pos = 0
-        while pos < Lx:
-            chunk_end = min(pos + chunk_size, Lx)
-            input_chunk = x_emb[:, pos:chunk_end, :]
-            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
-            hidden = hidden_new
-            memory = mem_new
-            # Save the last logit from x processing - it predicts y_ids[:, 0]
-            if chunk_end == Lx:
-                # This is the last chunk, take the final logit (after SEP token)
-                first_y_pred = out_chunk[:, -1:, :]  # [B, 1, vocab_size]
-                all_logits.append(first_y_pred)
-            pos = chunk_end
-
-        # Now process target sequence chunk by chunk and collect remaining predictions
-        # Feed y_ids[:, 0:Ly-1] to get predictions for y_ids[:, 1:Ly]
-        pos = 0
-        while pos < Ly - 1:
-            chunk_end = min(pos + chunk_size, Ly - 1)
-            y_chunk = y_ids[:, pos:chunk_end]
-            y_emb_chunk = embed(y_chunk)
-
-            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=False)
-            hidden = hidden_new
-            memory = mem_new
-
-            # Collect logits for this chunk
-            all_logits.append(out_chunk)
-
-            pos = chunk_end
-
-        # Concatenate all logits
-        if all_logits:
-            logits = torch.cat(all_logits, dim=1)  # [B, Ly, vocab_size]
-        else:
-            logits = torch.zeros(batch_size, 0, vocab_size, device=device, dtype=next_param.dtype)
+    logits = generate_predictions(model, x_ids, y_ids, require_gradients=False, chunk_size=32)
 
     print(f"Inference complete:")
     print(f"  Logits shape: {logits.shape}")

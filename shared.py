@@ -31,22 +31,21 @@ def generate_reverse_batch(batch_size, min_seq_length, max_seq_length, vocab_siz
 
     return x_ids, y_ids
 
-def compute_loss(model, x_ids, y_ids, criterion, require_gradients, chunk_size=32):
+def generate_predictions(model, x_ids, y_ids, require_gradients, chunk_size=32):
     """
-    Unified teacher forcing loss computation for both Adam and SPSA.
+    Generate predictions for y_ids using teacher forcing.
 
     Args:
         model: The LSTM model
         x_ids: Input token IDs [batch_size, seq_len]
         y_ids: Target token IDs [batch_size, seq_len]
-        criterion: Loss criterion (e.g., CrossEntropyLoss)
-        require_gradients: Whether to compute gradients (True for Adam, False for SPSA)
+        require_gradients: Whether to compute gradients
         chunk_size: Size of chunks for processing long sequences
 
     Returns:
-        avg_loss: Average loss as a torch.Tensor (float32)
+        logits: Predictions for all y_ids tokens [batch_size, Ly, vocab_size]
     """
-    # Conditionally disable gradients for SPSA
+    # Conditionally disable gradients
     context = torch.no_grad() if not require_gradients else torch.enable_grad()
 
     with context:
@@ -60,89 +59,6 @@ def compute_loss(model, x_ids, y_ids, criterion, require_gradients, chunk_size=3
 
         hidden = None
         memory = None
-        # Always use float32 for loss accumulation to avoid bfloat16 precision issues
-        total_loss = torch.tensor(0.0, dtype=torch.float32, device=x_ids.device)
-        total_predicted_tokens = 0
-
-        # Process input sequence first
-        pos = 0
-        while pos < Lx:
-            chunk_end = min(pos + chunk_size, Lx)
-            input_chunk = x_emb[:, pos:chunk_end, :]
-            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=require_gradients)
-            hidden = hidden_new
-            memory = mem_new
-
-            # If this is the last chunk, use the final output to predict y_ids[:, 0]
-            if chunk_end == Lx:
-                first_y_pred = out_chunk[:, -1, :]  # [B, vocab_size] - prediction after SEP
-                first_y_target = y_ids[:, 0]  # [B] - first token of output
-
-                # Compute loss for first prediction
-                first_loss = criterion(first_y_pred, first_y_target)
-                total_loss += first_loss.float() * first_y_target.size(0)
-                total_predicted_tokens += first_y_target.size(0)
-
-            pos = chunk_end
-
-        # Now process target sequence chunk by chunk
-        # Feed y_ids[:, 0:Ly-1] to predict y_ids[:, 1:Ly]
-        pos = 0
-        while pos < Ly - 1:
-            chunk_end = min(pos + chunk_size, Ly - 1)
-            # Only embed the current chunk of target sequence
-            y_chunk = y_ids[:, pos:chunk_end]
-            y_emb_chunk = model.embed(y_chunk)
-
-            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=require_gradients)
-
-            # Update states
-            hidden = hidden_new
-            memory = mem_new
-
-            # Compute loss for this chunk
-            out_chunk = out_chunk.reshape(-1, out_chunk.size(-1))
-            targets = y_ids[:, pos+1:chunk_end+1].reshape(-1)  # shift by 1 for next-token prediction
-
-            if targets.size(0) > 0:  # ensure we have targets
-                chunk_loss = criterion(out_chunk, targets)
-                # Always convert to float32 before accumulation to avoid bfloat16 precision issues
-                total_loss += chunk_loss.float() * targets.size(0)
-                total_predicted_tokens += targets.size(0)
-
-            pos = chunk_end
-
-        if total_predicted_tokens == 0:
-            # Return float32 tensor with gradients if needed
-            return torch.tensor(0.0, dtype=torch.float32, device=x_ids.device, requires_grad=require_gradients)
-
-        avg_loss = total_loss / total_predicted_tokens
-        # Ensure return is always float32 tensor
-        if avg_loss.dtype != torch.float32:
-            avg_loss = avg_loss.float()
-        return avg_loss
-
-def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
-    """
-    Compute accuracy using iterative teacher forcing (same as loss computation).
-    This ensures accuracy is measured on the full autoregressive generation.
-
-    Note: With the new data format, y_ids contains only the target output (no SEP).
-    The entire y_ids sequence (excluding PAD) is evaluated for accuracy.
-    """
-    with torch.no_grad():
-        x_emb = model.embed(x_ids)
-
-        next_param = next(model.parameters())
-        if x_emb.dtype != next_param.dtype:
-            x_emb = x_emb.to(dtype=next_param.dtype)
-        Lx = x_emb.shape[1]
-        Ly = y_ids.shape[1]
-
-        B = x_ids.shape[0]
-
-        hidden = None
-        memory = None
 
         # Process input sequence first and collect all logits
         all_logits = []
@@ -150,7 +66,7 @@ def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
         while pos < Lx:
             chunk_end = min(pos + chunk_size, Lx)
             input_chunk = x_emb[:, pos:chunk_end, :]
-            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=require_gradients)
             hidden = hidden_new
             memory = mem_new
             # Save the last logit from x processing - it predicts y_ids[:, 0]
@@ -168,7 +84,7 @@ def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
             y_chunk = y_ids[:, pos:chunk_end]
             y_emb_chunk = model.embed(y_chunk)
 
-            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=False)
+            out_chunk, mem_new, hidden_new = model(y_emb_chunk, hidden=hidden, memory=memory, require_gradients=require_gradients)
             hidden = hidden_new
             memory = mem_new
 
@@ -181,26 +97,96 @@ def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
         if all_logits:
             logits = torch.cat(all_logits, dim=1)  # [B, Ly, vocab_size]
         else:
-            return 0.0
+            # Return empty logits if no predictions were made
+            B = x_ids.shape[0]
+            vocab_size = model.output_size
+            logits = torch.zeros(B, 0, vocab_size, device=x_ids.device, dtype=next_param.dtype)
 
-        # Get predictions
-        preds = logits.argmax(dim=-1)  # [B, Ly]
+        return logits
 
-        # Compute accuracy on entire y_ids sequence (excluding PAD)
-        # Note: preds[b, i] predicts y_ids[b, i] directly
-        total_correct = 0
-        total_tokens = 0
+def compute_loss(model, x_ids, y_ids, criterion, require_gradients, chunk_size=32):
+    """
+    Unified teacher forcing loss computation for both Adam and SPSA.
 
-        for b in range(B):
-            # Iterate through all target positions (before PAD)
-            for i in range(Ly):
-                if y_ids[b, i] == pad_id:
-                    break
+    Args:
+        model: The LSTM model
+        x_ids: Input token IDs [batch_size, seq_len]
+        y_ids: Target token IDs [batch_size, seq_len]
+        criterion: Loss criterion (e.g., CrossEntropyLoss)
+        require_gradients: Whether to compute gradients (True for Adam, False for SPSA)
+        chunk_size: Size of chunks for processing long sequences
 
-                # Prediction at position i predicts token at position i
-                if i < preds.shape[1]:
-                    if preds[b, i] == y_ids[b, i]:
-                        total_correct += 1
-                    total_tokens += 1
+    Returns:
+        avg_loss: Average loss as a torch.Tensor (float32)
+    """
+    # Generate predictions for all y_ids tokens
+    logits = generate_predictions(model, x_ids, y_ids, require_gradients, chunk_size)
 
-        return total_correct / max(total_tokens, 1)
+    # Compute loss
+    # Always use float32 for loss accumulation to avoid bfloat16 precision issues
+    total_loss = torch.tensor(0.0, dtype=torch.float32, device=x_ids.device)
+    total_predicted_tokens = 0
+
+    Ly = y_ids.shape[1]
+    B = x_ids.shape[0]
+
+    # Compute loss for all predictions
+    # logits[:, i] predicts y_ids[:, i]
+    for i in range(Ly):
+        if i < logits.shape[1]:
+            pred = logits[:, i, :]  # [B, vocab_size]
+            target = y_ids[:, i]  # [B]
+
+            # Compute loss for this position
+            loss = criterion(pred, target)
+            total_loss += loss.float() * B
+            total_predicted_tokens += B
+
+    if total_predicted_tokens == 0:
+        # Return float32 tensor with gradients if needed
+        return torch.tensor(0.0, dtype=torch.float32, device=x_ids.device, requires_grad=require_gradients)
+
+    avg_loss = total_loss / total_predicted_tokens
+    # Ensure return is always float32 tensor
+    if avg_loss.dtype != torch.float32:
+        avg_loss = avg_loss.float()
+    return avg_loss
+
+def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
+    """
+    Compute accuracy using iterative teacher forcing (same as loss computation).
+    This ensures accuracy is measured on the full autoregressive generation.
+
+    Note: With the new data format, y_ids contains only the target output (no SEP).
+    The entire y_ids sequence (excluding PAD) is evaluated for accuracy.
+    """
+    # Generate predictions for all y_ids tokens
+    logits = generate_predictions(model, x_ids, y_ids, require_gradients=False, chunk_size=chunk_size)
+
+    if logits.shape[1] == 0:
+        return 0.0
+
+    # Get predictions
+    preds = logits.argmax(dim=-1)  # [B, Ly]
+
+    B = x_ids.shape[0]
+    Ly = y_ids.shape[1]
+
+    # Compute accuracy on entire y_ids sequence (excluding PAD)
+    # Note: preds[b, i] predicts y_ids[b, i] directly
+    total_correct = 0
+    total_tokens = 0
+
+    for b in range(B):
+        # Iterate through all target positions (before PAD)
+        for i in range(Ly):
+            if y_ids[b, i] == pad_id:
+                break
+
+            # Prediction at position i predicts token at position i
+            if i < preds.shape[1]:
+                if preds[b, i] == y_ids[b, i]:
+                    total_correct += 1
+                total_tokens += 1
+
+    return total_correct / max(total_tokens, 1)
