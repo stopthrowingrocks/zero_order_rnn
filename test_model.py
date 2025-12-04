@@ -87,7 +87,8 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         memory = None
         chunk_size = 32
 
-        # Process input sequence first
+        # Process input sequence first and collect all logits
+        all_logits = []
         pos = 0
         while pos < Lx:
             chunk_end = min(pos + chunk_size, Lx)
@@ -95,12 +96,17 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
             out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
             hidden = hidden_new
             memory = mem_new
+            # Save the last logit from x processing - it predicts y_ids[:, 0]
+            if chunk_end == Lx:
+                # This is the last chunk, take the final logit (after SEP token)
+                first_y_pred = out_chunk[:, -1:, :]  # [B, 1, vocab_size]
+                all_logits.append(first_y_pred)
             pos = chunk_end
 
-        # Now process target sequence chunk by chunk and collect predictions
-        all_logits = []
+        # Now process target sequence chunk by chunk and collect remaining predictions
+        # Feed y_ids[:, 0:Ly-1] to get predictions for y_ids[:, 1:Ly]
         pos = 0
-        while pos < Ly - 1:  # -1 because we don't embed the last target token
+        while pos < Ly - 1:
             chunk_end = min(pos + chunk_size, Ly - 1)
             y_chunk = y_ids[:, pos:chunk_end]
             y_emb_chunk = embed(y_chunk)
@@ -116,7 +122,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
 
         # Concatenate all logits
         if all_logits:
-            logits = torch.cat(all_logits, dim=1)  # [B, Ly-1, vocab_size]
+            logits = torch.cat(all_logits, dim=1)  # [B, Ly, vocab_size]
         else:
             logits = torch.zeros(batch_size, 0, vocab_size, device=device, dtype=next_param.dtype)
 
@@ -152,7 +158,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         print(f"Input:  {list(map(int, list(x_sample)))}")
 
         # Display target and prediction (entire y_ids sequence, excluding PAD)
-        # Note: predictions are for next tokens, so pred[i] predicts y[i+1]
+        # Note: logits[i] predicts y_ids[i] directly now
         target_tokens = []
         pred_tokens = []
 
@@ -161,10 +167,9 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
                 break
             target_tokens.append(int(y_sample[i]))
 
-            # Prediction at position (i-1) predicts token at position i
-            pred_idx = i - 1
-            if pred_idx >= 0 and pred_idx < len(pred_sample):
-                pred_tokens.append(int(pred_sample[pred_idx]))
+            # Prediction at position i predicts token at position i
+            if i < len(pred_sample):
+                pred_tokens.append(int(pred_sample[i]))
 
         print(f"Target: {target_tokens}")
         print(f"Pred:   {pred_tokens}")

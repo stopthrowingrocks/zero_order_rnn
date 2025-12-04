@@ -72,11 +72,23 @@ def compute_loss(model, x_ids, y_ids, criterion, require_gradients, chunk_size=3
             out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=require_gradients)
             hidden = hidden_new
             memory = mem_new
+
+            # If this is the last chunk, use the final output to predict y_ids[:, 0]
+            if chunk_end == Lx:
+                first_y_pred = out_chunk[:, -1, :]  # [B, vocab_size] - prediction after SEP
+                first_y_target = y_ids[:, 0]  # [B] - first token of output
+
+                # Compute loss for first prediction
+                first_loss = criterion(first_y_pred, first_y_target)
+                total_loss += first_loss.float() * first_y_target.size(0)
+                total_predicted_tokens += first_y_target.size(0)
+
             pos = chunk_end
 
         # Now process target sequence chunk by chunk
+        # Feed y_ids[:, 0:Ly-1] to predict y_ids[:, 1:Ly]
         pos = 0
-        while pos < Ly - 1:  # -1 because we don't embed the last target token
+        while pos < Ly - 1:
             chunk_end = min(pos + chunk_size, Ly - 1)
             # Only embed the current chunk of target sequence
             y_chunk = y_ids[:, pos:chunk_end]
@@ -132,7 +144,8 @@ def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
         hidden = None
         memory = None
 
-        # Process input sequence first
+        # Process input sequence first and collect all logits
+        all_logits = []
         pos = 0
         while pos < Lx:
             chunk_end = min(pos + chunk_size, Lx)
@@ -140,10 +153,15 @@ def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
             out_chunk, mem_new, hidden_new = model(input_chunk, hidden=hidden, memory=memory, require_gradients=False)
             hidden = hidden_new
             memory = mem_new
+            # Save the last logit from x processing - it predicts y_ids[:, 0]
+            if chunk_end == Lx:
+                # This is the last chunk, take the final logit (after SEP token)
+                first_y_pred = out_chunk[:, -1:, :]  # [B, 1, vocab_size]
+                all_logits.append(first_y_pred)
             pos = chunk_end
 
-        # Now process target sequence chunk by chunk and collect predictions
-        all_logits = []
+        # Now process target sequence chunk by chunk and collect remaining predictions
+        # Feed y_ids[:, 0:Ly-1] to get predictions for y_ids[:, 1:Ly]
         pos = 0
         while pos < Ly - 1:
             chunk_end = min(pos + chunk_size, Ly - 1)
@@ -161,15 +179,15 @@ def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
 
         # Concatenate all logits
         if all_logits:
-            logits = torch.cat(all_logits, dim=1)  # [B, Ly-1, vocab_size]
+            logits = torch.cat(all_logits, dim=1)  # [B, Ly, vocab_size]
         else:
             return 0.0
 
         # Get predictions
-        preds = logits.argmax(dim=-1)  # [B, Ly-1]
+        preds = logits.argmax(dim=-1)  # [B, Ly]
 
         # Compute accuracy on entire y_ids sequence (excluding PAD)
-        # Note: preds[b, i] predicts y_ids[b, i+1] (next-token prediction)
+        # Note: preds[b, i] predicts y_ids[b, i] directly
         total_correct = 0
         total_tokens = 0
 
@@ -179,10 +197,9 @@ def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
                 if y_ids[b, i] == pad_id:
                     break
 
-                # Prediction at position (i-1) predicts token at position i
-                pred_idx = i - 1
-                if pred_idx >= 0 and pred_idx < preds.shape[1]:
-                    if preds[b, pred_idx] == y_ids[b, i]:
+                # Prediction at position i predicts token at position i
+                if i < preds.shape[1]:
+                    if preds[b, i] == y_ids[b, i]:
                         total_correct += 1
                     total_tokens += 1
 
