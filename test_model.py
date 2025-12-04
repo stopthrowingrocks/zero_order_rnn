@@ -100,8 +100,8 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         # Now process target sequence chunk by chunk and collect predictions
         all_logits = []
         pos = 0
-        while pos < Ly:
-            chunk_end = min(pos + chunk_size, Ly)
+        while pos < Ly - 1:  # -1 because we don't embed the last target token
+            chunk_end = min(pos + chunk_size, Ly - 1)
             y_chunk = y_ids[:, pos:chunk_end]
             y_emb_chunk = embed(y_chunk)
 
@@ -136,6 +136,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
     x_samples = x_ids.cpu().numpy()
     y_samples = y_ids.cpu().numpy()
     pred_samples = logits.argmax(dim=-1).cpu().numpy()
+    print(f"Pred samples shape {pred_samples.shape}")
 
     total_correct_all = 0
     total_tokens_all = 0
@@ -148,7 +149,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         y_sample = y_samples[batch_idx]
         pred_sample = pred_samples[batch_idx]
 
-        print(f"Input:  {list(x_sample)}")
+        print(f"Input:  {list(map(int, list(x_sample)))}")
 
         # Display target and prediction (entire y_ids sequence, excluding PAD)
         # Note: predictions are for next tokens, so pred[i] predicts y[i+1]
