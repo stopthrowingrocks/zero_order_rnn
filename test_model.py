@@ -7,8 +7,11 @@ Example usage:
     python test_model.py spsa_model.pt --batch_size 8 --min_seq_length 5 --max_seq_length 10
 """
 import argparse
+import csv
+import os
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
 from models.models import LSTM
 from shared import compute_accuracy, compute_loss, generate_reverse_batch, generate_predictions
 
@@ -152,6 +155,63 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
     return logits, x_ids, y_ids
 
 
+def analyze_loss_by_seq_length(model, vocab_size, batch_size, min_seq_length, max_seq_length, device, model_name):
+    """Analyze loss for different sequence lengths and save results."""
+    print("\n" + "=" * 80)
+    print("ANALYZING LOSS BY SEQUENCE LENGTH")
+    print("=" * 80)
+    print(f"Testing sequence lengths from {min_seq_length} to {max_seq_length}")
+    print(f"Batch size: {batch_size}")
+    print()
+
+    PAD = vocab_size - 1
+    criterion = nn.CrossEntropyLoss(ignore_index=PAD).to(device)
+
+    # Collect loss for each sequence length
+    seq_lengths = []
+    losses = []
+
+    for seq_len in range(min_seq_length, max_seq_length + 1):
+        # Generate batch with fixed sequence length
+        x_ids, y_ids = generate_reverse_batch(batch_size, seq_len, seq_len, vocab_size, device)
+
+        # Compute loss
+        loss = compute_loss(model, x_ids, y_ids, criterion, require_gradients=False).item()
+
+        seq_lengths.append(seq_len)
+        losses.append(loss)
+
+        print(f"  Seq length {seq_len:3d}: Loss = {loss:.6f}")
+
+    print()
+
+    # Save to CSV
+    csv_filename = f"{model_name}_losses.csv"
+    with open(csv_filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['seq_length', 'loss'])
+        for seq_len, loss in zip(seq_lengths, losses):
+            writer.writerow([seq_len, loss])
+
+    print(f"✓ Saved loss data to {csv_filename}")
+
+    # Create scatter plot
+    plt.figure(figsize=(10, 6))
+    plt.scatter(seq_lengths, losses, alpha=0.6, s=50)
+    plt.xlabel('Sequence Length', fontsize=12)
+    plt.ylabel('Loss', fontsize=12)
+    plt.title(f'Loss vs Sequence Length - {model_name}', fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+
+    png_filename = f"{model_name}_losses.png"
+    plt.savefig(png_filename, dpi=150)
+    plt.close()
+
+    print(f"✓ Saved plot to {png_filename}")
+    print("=" * 80)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Test a saved model')
     parser.add_argument('model_path', type=str, help='Path to saved model (.pt file)')
@@ -169,6 +229,9 @@ def main():
     # Load model
     model, embed, vocab_size = load_model(args.model_path, device)
 
+    # Extract model name from path (without extension)
+    model_name = os.path.splitext(os.path.basename(args.model_path))[0]
+
     # Run inference
     logits, x_ids, y_ids = run_inference(
         model, embed, vocab_size,
@@ -181,6 +244,13 @@ def main():
     print("=" * 80)
     print(f"Logits returned with shape: {logits.shape}")
     print()
+
+    # Analyze loss by sequence length
+    analyze_loss_by_seq_length(
+        model, vocab_size, args.batch_size,
+        args.min_seq_length, args.max_seq_length,
+        device, model_name
+    )
 
 
 if __name__ == '__main__':
