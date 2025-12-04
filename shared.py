@@ -110,10 +110,13 @@ def compute_loss(model, x_ids, y_ids, criterion, require_gradients, chunk_size=3
             avg_loss = avg_loss.float()
         return avg_loss
 
-def compute_accuracy(model, x_ids, y_ids, sep_id, pad_id, chunk_size=32):
+def compute_accuracy(model, x_ids, y_ids, pad_id, chunk_size=32):
     """
     Compute accuracy using iterative teacher forcing (same as loss computation).
     This ensures accuracy is measured on the full autoregressive generation.
+
+    Note: With the new data format, y_ids contains only the target output (no SEP).
+    The entire y_ids sequence (excluding PAD) is evaluated for accuracy.
     """
     with torch.no_grad():
         x_emb = model.embed(x_ids)
@@ -165,20 +168,14 @@ def compute_accuracy(model, x_ids, y_ids, sep_id, pad_id, chunk_size=32):
         # Get predictions
         preds = logits.argmax(dim=-1)  # [B, Ly-1]
 
-        # Compute accuracy only on output part (after SEP token)
+        # Compute accuracy on entire y_ids sequence (excluding PAD)
         # Note: preds[b, i] predicts y_ids[b, i+1] (next-token prediction)
         total_correct = 0
         total_tokens = 0
 
         for b in range(B):
-            sep_positions = (y_ids[b] == sep_id).nonzero(as_tuple=True)[0]
-            if len(sep_positions) == 0:
-                continue
-            sep_pos = sep_positions[0].item()
-
-            # Check predictions after SEP token
-            # Iterate through output positions (after SEP, before PAD)
-            for i in range(sep_pos + 1, Ly):
+            # Iterate through all target positions (before PAD)
+            for i in range(Ly):
                 if y_ids[b, i] == pad_id:
                     break
 

@@ -109,7 +109,6 @@ def train_to_convergence(args, device):
 
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
-    SEP = args.vocab_size - 3
     PAD = args.vocab_size - 1
 
     epsilon = args.learning_rate  # For SPSA, epsilon = learning_rate
@@ -215,7 +214,7 @@ def train_to_convergence(args, device):
         if step % 10 == 0 or loss_value <= args.convergence_loss:
             print(f"Min {min_seq_length_t}, Max {max_seq_length_t}")
             print(f"{x_ids=} {y_ids=}")
-            accuracy = compute_accuracy(model, x_ids, y_ids, SEP, PAD)
+            accuracy = compute_accuracy(model, x_ids, y_ids, PAD)
 
         # Log to wandb
         if WANDB_AVAILABLE:

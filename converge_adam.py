@@ -56,7 +56,6 @@ def train_to_convergence(
 
     device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
-    SEP = args.vocab_size - 3
     PAD = args.vocab_size - 1
 
     # Load model from checkpoint if resuming
@@ -170,7 +169,7 @@ def train_to_convergence(
         # Compute accuracy periodically using iterative teacher forcing
         accuracy = None
         if step % 10 == 0 or loss_value <= args.convergence_loss:
-            accuracy = compute_accuracy(model, x_ids, y_ids, SEP, PAD)
+            accuracy = compute_accuracy(model, x_ids, y_ids, PAD)
 
         # Log to wandb
         if WANDB_AVAILABLE:

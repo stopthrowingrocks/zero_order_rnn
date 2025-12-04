@@ -149,52 +149,46 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         y_sample = y_samples[batch_idx]
         pred_sample = pred_samples[batch_idx]
 
-        # Find SEP position in input
+        # Find SEP position in input (x_ids contains SEP)
         sep_pos_x = None
         for i, token in enumerate(x_sample):
             if token == SEP:
                 sep_pos_x = i
                 break
 
-        # Display input sequence (before SEP)
+        # Display input sequence (before SEP in x_ids)
         if sep_pos_x is not None:
-            input_seq = x_sample[:sep_pos_x]
+            input_seq = x_sample[1:sep_pos_x]  # Skip BOS, stop at SEP
             print(f"Input:  {list(input_seq)}")
         else:
             print(f"Input:  {list(x_sample)}")
 
-        # Find SEP position in target
-        sep_pos_y = None
-        for i, token in enumerate(y_sample):
-            if token == SEP:
-                sep_pos_y = i
-                break
-
-        # Display target and prediction (after SEP, before PAD)
+        # Display target and prediction (entire y_ids sequence, excluding PAD)
         # Note: predictions are for next tokens, so pred[i] predicts y[i+1]
-        if sep_pos_y is not None:
-            target_tokens = []
-            pred_tokens = []
-            for i in range(sep_pos_y + 1, len(y_sample)):
-                if y_sample[i] == PAD:
-                    break
-                target_tokens.append(int(y_sample[i]))
-                # Prediction at position (i-1) predicts token at position i
-                pred_idx = i - 1
-                if pred_idx >= 0 and pred_idx < len(pred_sample):
-                    pred_tokens.append(int(pred_sample[pred_idx]))
+        target_tokens = []
+        pred_tokens = []
 
-            print(f"Target: {target_tokens}")
-            print(f"Pred:   {pred_tokens}")
+        for i in range(len(y_sample)):
+            if y_sample[i] == PAD:
+                break
+            target_tokens.append(int(y_sample[i]))
 
-            # Check accuracy
-            if len(target_tokens) > 0 and len(pred_tokens) == len(target_tokens):
-                correct = sum(1 for t, p in zip(target_tokens, pred_tokens) if t == p)
-                accuracy = correct / len(target_tokens)
-                print(f"Accuracy: {correct}/{len(target_tokens)} = {accuracy:.2%}")
+            # Prediction at position (i-1) predicts token at position i
+            pred_idx = i - 1
+            if pred_idx >= 0 and pred_idx < len(pred_sample):
+                pred_tokens.append(int(pred_sample[pred_idx]))
 
-                total_correct_all += correct
-                total_tokens_all += len(target_tokens)
+        print(f"Target: {target_tokens}")
+        print(f"Pred:   {pred_tokens}")
+
+        # Check accuracy
+        if len(target_tokens) > 0 and len(pred_tokens) == len(target_tokens):
+            correct = sum(1 for t, p in zip(target_tokens, pred_tokens) if t == p)
+            accuracy = correct / len(target_tokens)
+            print(f"Accuracy: {correct}/{len(target_tokens)} = {accuracy:.2%}")
+
+            total_correct_all += correct
+            total_tokens_all += len(target_tokens)
 
     # Overall accuracy
     print("\n" + "=" * 80)
@@ -202,7 +196,7 @@ def run_inference(model, embed, vocab_size, batch_size, min_seq_length, max_seq_
         overall_accuracy = total_correct_all / total_tokens_all
         print(f"Overall Accuracy: {total_correct_all}/{total_tokens_all} = {overall_accuracy:.2%}")
     print("=" * 80)
-    other_accuracy = compute_accuracy(model, x_ids, y_ids, SEP, PAD, chunk_size=32)
+    other_accuracy = compute_accuracy(model, x_ids, y_ids, PAD, chunk_size=32)
     print(f"Shared compute_accuracy: {other_accuracy}")
 
     # Compute loss using shared compute_loss function
