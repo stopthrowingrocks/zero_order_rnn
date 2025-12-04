@@ -212,8 +212,8 @@ def train_to_convergence(args, device):
         # Compute accuracy periodically using iterative teacher forcing
         accuracy = None
         if step % 10 == 0 or loss_value <= args.convergence_loss:
-            print(f"Min {min_seq_length_t}, Max {max_seq_length_t}")
-            print(f"{x_ids=} {y_ids=}")
+            # print(f"Min {min_seq_length_t}, Max {max_seq_length_t}")
+            # print(f"{x_ids=} {y_ids=}")
             accuracy = compute_accuracy(model, x_ids, y_ids, PAD)
 
         # Log to wandb
