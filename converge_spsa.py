@@ -68,11 +68,12 @@ def spsa_step(model, x_ids, y_ids, criterion, learning_rate, epsilon, num_pertur
 
     # Compute pseudo gradient norm
     grad_norm = sum(pg.norm().item() ** 2 for pg in pseudo_gradient) ** 0.5
+    gt=sum(pg.numel() for pg in pseudo_gradient) ** 0.5
 
     # Update parameters
     with torch.no_grad():
         for p, pg in zip(param_list, pseudo_gradient):
-            p.add_(pg, alpha=-learning_rate)
+            p.add_(pg/grad_norm*gt, alpha=-learning_rate)
 
     return current_loss, grad_norm
 
@@ -125,7 +126,7 @@ def train_to_convergence(args, device):
         args.num_heads = checkpoint['num_heads']
 
         # Create model with checkpoint config
-        embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.bfloat16)
+        embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.float32)
         model = LSTM(
             input_size=args.input_size,
             output_size=args.vocab_size,
@@ -135,7 +136,7 @@ def train_to_convergence(args, device):
             num_heads=args.num_heads,
             embed=embed,
             device=device,
-            dtype=torch.bfloat16
+            dtype=torch.float32
         )
 
         # Load weights
@@ -146,7 +147,7 @@ def train_to_convergence(args, device):
               f"previous loss: {checkpoint.get('final_loss', 'unknown'):.6f})")
     else:
         # Create fresh model
-        embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.bfloat16)
+        embed = nn.Embedding(args.vocab_size, args.input_size, device=device, dtype=torch.float32)
         model = LSTM(
             input_size=args.input_size,
             output_size=args.vocab_size,
@@ -156,12 +157,15 @@ def train_to_convergence(args, device):
             num_heads=args.num_heads,
             embed=embed,
             device=device,
-            dtype=torch.bfloat16
+            dtype=torch.float32
         )
 
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters()) + sum(p.numel() for p in embed.parameters())
-
+    print("cur eps",epsilon)
+    epsilon=total_params**-0.5
+    print("new eps",epsilon)
+    args.learning_rate = 2 * epsilon
     # Save initial parameters for drift calculation
     initial_params = []
     for p in list(model.parameters()) + list(embed.parameters()):
@@ -304,7 +308,7 @@ def main():
     parser = argparse.ArgumentParser(description='Train LSTM with SPSA to convergence')
 
     # Model architecture
-    parser.add_argument('--vocab_size', type=int, default=64, help='Vocabulary size')
+    parser.add_argument('--vocab_size', type=int, default=12, help='Vocabulary size')
     parser.add_argument('--min_seq_length', type=int, default=1, help='Minimum sequence length')
     parser.add_argument('--max_seq_length', type=int, default=64, help='Maximum sequence length')
     parser.add_argument('--min_seq_length_start', type=int, default=1, help='Starting minimum sequence length')
@@ -314,7 +318,8 @@ def main():
     parser.add_argument('--num_heads', type=int, default=20, help='Number of attention heads')
 
     # Training hyperparameters
-    parser.add_argument('--learning_rate', type=float, default=0.1, help='SPSA learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.017678, help='SPSA learning rate')
+    parser.add_argument('--eps_ratio', type=float, default=1, help='How much smaller should epsilon be? 0.1 to 1 recommended.')
     parser.add_argument('--num_perturbations', type=int, default=8, help='Number of SPSA perturbations')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--convergence_loss', type=float, default=0.1, help='Loss threshold for convergence')

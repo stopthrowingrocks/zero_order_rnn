@@ -22,6 +22,7 @@ from shared import compute_loss, generate_reverse_batch
 
 
 def load_model(model_path, device='cuda'):
+    dtype = torch.float32
     """Load a saved model from checkpoint."""
     checkpoint = torch.load(model_path, map_location=device)
 
@@ -32,7 +33,7 @@ def load_model(model_path, device='cuda'):
     num_heads = checkpoint['num_heads']
 
     # Create embedding layer
-    embed = nn.Embedding(vocab_size, input_size, device=device, dtype=torch.bfloat16)
+    embed = nn.Embedding(vocab_size, input_size, device=device, dtype=dtype)
     embed.load_state_dict(checkpoint['embed_state_dict'])
 
     # Create model
@@ -45,7 +46,7 @@ def load_model(model_path, device='cuda'):
         num_heads=num_heads,
         embed=embed,
         device=device,
-        dtype=torch.bfloat16
+        dtype=dtype
     )
     model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -295,12 +296,12 @@ def main():
                        help='Number of batches to visualize (default: 12)')
     parser.add_argument('--batch_size', type=int, default=32,
                        help='Batch size (default: 32)')
-    parser.add_argument('--min_seq_length', type=int, default=5,
-                       help='Minimum sequence length (default: 5)')
-    parser.add_argument('--max_seq_length', type=int, default=10,
-                       help='Maximum sequence length (default: 10)')
-    parser.add_argument('--spsa_epsilon', type=float, default=0.1,
-                       help='SPSA perturbation scale (default: 0.1)')
+    parser.add_argument('--min_seq_length', type=int, default=1,
+                       help='Minimum sequence length')
+    parser.add_argument('--max_seq_length', type=int, default=3,
+                       help='Maximum sequence length')
+    parser.add_argument('--spsa_epsilon', type=float, default=0.017678,
+                       help='SPSA perturbation scale')
     parser.add_argument('--spsa_perturbations', type=int, default=8,
                        help='Number of SPSA perturbations (default: 8)')
     parser.add_argument('--device', type=str, default='cuda',
